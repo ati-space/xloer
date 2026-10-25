@@ -9,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dispatch, normalizeState, todayStr } from '../shared/store.js';
 import { seedState } from '../shared/seed.js';
+import { paletteOf } from '../shared/themes.js';
 import { parseTasksCsv } from '../shared/tasks-csv.js';
 import { createStorage } from './storage.js';
 import { createUpdater } from './updater.js';
@@ -20,11 +21,6 @@ const ICON = path.join(here, '..', '..', 'build', 'icon.png');
 const isWin = process.platform === 'win32';
 const autostarted = process.argv.includes('--autostart');
 
-// Must match --bg-list / --bg-widget / --bg-detail (title bar overlay) in renderer/css/base.css.
-const COLORS = {
-  dark: { bg: '#0d0e10', widget: '#0f1013', overlay: { color: '#141518', symbolColor: '#ecece8', height: 40 } },
-  light: { bg: '#f4f4f1', widget: '#f7f7f4', overlay: { color: '#ffffff', symbolColor: '#141516', height: 40 } },
-};
 
 let state;
 let storage;
@@ -131,8 +127,11 @@ function updateLoginItem() {
   app.setLoginItemSettings({ openAtLogin: state.settings.startWithWindows, path: exe, args: ['--autostart'] });
 }
 
+// The window colours of the chosen theme, light or dark (see shared/themes.js).
 function colors() {
-  return nativeTheme.shouldUseDarkColors ? COLORS.dark : COLORS.light;
+  const p = paletteOf(state.settings.palette);
+  const c = nativeTheme.shouldUseDarkColors ? p.dark : p.light;
+  return { bg: c.bg, widget: c.widget, overlay: { color: c.bar, symbolColor: c.text, height: 40 } };
 }
 
 function updateThemeColors() {

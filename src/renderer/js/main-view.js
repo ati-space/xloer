@@ -6,6 +6,7 @@ import { dayIcon, icon } from './icons.js';
 import { TaskTree } from './tree.js';
 import { createInvoicesView } from './invoices-view.js';
 import { changelogUnseen, openChangelog } from './changelog-view.js';
+import { PALETTES } from '../../shared/themes.js';
 import { calendarAnchor, closeCalendar, openCalendar } from './calendar.js';
 import { formatTrDate } from '../../shared/dates.js';
 import * as A from './actions.js';
@@ -94,7 +95,7 @@ function validView(v) {
 function setState(next) {
   state = next;
   index = buildIndex(state);
-  applyTheme(state.settings.theme);
+  applyTheme(state.settings.theme, state.settings.palette);
   if (!validView(view)) view = { type: 'list', id: (state.lists.find((l) => !l.system) ?? state.lists[0]).id };
   if (selectedId && !index.byId.get(selectedId)) selectedId = null;
   render();
@@ -932,6 +933,12 @@ async function openSettings() {
       ]
         .map(([v, l]) => `<button type="button" role="radio" aria-checked="${s.theme === v}" data-theme-opt="${v}">${l}</button>`)
         .join('')}</div>
+      <div class="palette-grid" role="radiogroup" aria-label="Renk teması">${PALETTES.map(
+        (p) => `<button type="button" role="radio" aria-checked="${s.palette === p.id}" data-palette-opt="${p.id}">
+          <span class="pal-sw" aria-hidden="true">${[p.dark.bg, p.dark.bar, p.dark.accent, p.light.bg].map((c) => `<i style="background:${c}"></i>`).join('')}</span>
+          <b>${esc(p.name)}</b><span>${esc(p.note)}</span>
+        </button>`,
+      ).join('')}</div>
     </section>
     <section>
       <h3>Uygulama</h3>
@@ -972,6 +979,11 @@ async function openSettings() {
         if (theme) {
           box.querySelectorAll('[data-theme-opt]').forEach((b) => b.setAttribute('aria-checked', String(b === theme)));
           return A.run({ type: 'settings/update', patch: { theme: theme.dataset.themeOpt } });
+        }
+        const palette = e.target.closest('[data-palette-opt]');
+        if (palette) {
+          box.querySelectorAll('[data-palette-opt]').forEach((b) => b.setAttribute('aria-checked', String(b === palette)));
+          return A.run({ type: 'settings/update', patch: { palette: palette.dataset.paletteOpt } });
         }
         const data = e.target.closest('[data-data]')?.dataset.data;
         if (data === 'changelog') return showChangelog();

@@ -120,6 +120,8 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
   ay sınırında bölünür. İpucunda doluluk oranı, test ve proje sayısı görünür.
 
 **Diğer**
+- **Temalar** (Ayarlar → Görünüm): Laboratuvar, Gece, Orman, Bakır, Mürdüm ve Kontrast;
+  her biri koyu, açık ya da sistemle birlikte çalışır.
 - **Yenilikler** (soldaki ✦ düğmesi ya da Ayarlar’ın altı): her sürümde eklenenler,
   en yeniden eskiye. Güncellemeden sonra düğmede nokta belirir.
 - Bugün / Sonraki 7 Gün, etiketler, öncelik (bayrak), bitiş tarihi, açıklama.

@@ -67,7 +67,7 @@ function currentList() {
 function setState(next) {
   state = next;
   index = buildIndex(state);
-  applyTheme(state.settings.theme);
+  applyTheme(state.settings.theme, state.settings.palette);
   render();
 }
 

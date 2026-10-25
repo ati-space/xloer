@@ -14,13 +14,19 @@ export const PRIORITY_COLORS = ['var(--text-3)', 'var(--p1)', 'var(--p2)', 'var(
 // ---------------------------------------------------------------- theme
 
 let themeSetting = 'dark';
+let themePalette = 'laboratuvar';
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 darkQuery.addEventListener('change', () => applyTheme(themeSetting));
 
-export function applyTheme(setting) {
+// Light or dark (or the system's), and the colour theme from Ayarlar.
+export function applyTheme(setting, palette = themePalette) {
   themeSetting = setting;
+  themePalette = palette;
   const dark = setting === 'system' ? darkQuery.matches : setting !== 'light';
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const root = document.documentElement;
+  root.dataset.theme = dark ? 'dark' : 'light';
+  if (palette && palette !== 'laboratuvar') root.dataset.palette = palette;
+  else delete root.dataset.palette;
 }
 
 // ---------------------------------------------------------------- dates

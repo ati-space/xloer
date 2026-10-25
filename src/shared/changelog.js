@@ -8,6 +8,15 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.11.0',
+    date: '2026-10-26',
+    title: 'Yeni temalar',
+    items: [
+      ['new', 'Beş yeni renk teması: Gece (lacivert, camgöbeği), Orman (koyu yeşil, limon), Bakır (kahve, bakır), Mürdüm (mürdüm, gül pembesi) ve Kontrast (siyah-beyaz); Ayarlar → Görünüm'],
+      ['new', 'Her tema koyu, açık ve sistem moduyla çalışır; ana pencere, widget ve pencere çerçevesi birlikte değişir'],
+    ],
+  },
+  {
     version: '1.10.0',
     date: '2026-10-26',
     title: 'Tek depo',

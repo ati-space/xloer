@@ -4,6 +4,7 @@
 // the main process and (for the browser preview) in a renderer.
 
 import { assignCustomers } from './customers.js';
+import { DEFAULT_PALETTE, PALETTES } from './themes.js';
 import { DEFAULT_DEVICES, DEFAULT_TEST_TYPES } from './invoices.js';
 
 export const SCHEMA_VERSION = 1;
@@ -24,6 +25,7 @@ export function uid(prefix) {
 export function defaultSettings() {
   return {
     theme: 'dark', // dark | light | system
+    palette: DEFAULT_PALETTE, // a colour theme from themes.js
     closeToTray: true,
     startWithWindows: false,
     autoUpdate: true,
@@ -93,6 +95,7 @@ function normalizeSettings(raw = {}) {
   const w = { ...d.widget, ...(raw.widget && typeof raw.widget === 'object' ? raw.widget : {}) };
   return {
     theme: ['dark', 'light', 'system'].includes(raw.theme) ? raw.theme : d.theme,
+    palette: PALETTES.some((p) => p.id === raw.palette) ? raw.palette : d.palette,
     closeToTray: typeof raw.closeToTray === 'boolean' ? raw.closeToTray : d.closeToTray,
     startWithWindows: !!raw.startWithWindows,
     autoUpdate: typeof raw.autoUpdate === 'boolean' ? raw.autoUpdate : d.autoUpdate,
