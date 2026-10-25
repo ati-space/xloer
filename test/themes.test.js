@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import { DEFAULT_PALETTE, PALETTES, paletteOf } from '../src/shared/themes.js';
 import { emptyState, normalizeState } from '../src/shared/store.js';
 
-const css = (name) => fs.readFileSync(new URL(`../src/renderer/css/${name}`, import.meta.url), 'utf8');
+// Windows checkouts get CRLF line endings; compare on LF.
+const css = (name) => fs.readFileSync(new URL(`../src/renderer/css/${name}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const tokens = (block) => Object.fromEntries([...block.matchAll(/(--[\w-]+):\s*([^;]+);/g)].map(([, k, v]) => [k, v.trim()]));
 const block = (text, selector) => {
   const at = text.indexOf(`${selector} {`);
