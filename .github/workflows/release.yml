@@ -1,0 +1,74 @@
+# Publishes the Windows installers as a release of this repository whenever
+# package.json on main has a version that is not released yet. Installed
+# copies of Xloer find the new version in that release.
+#
+# It publishes with the workflow's own token, so no secret is needed.
+# "Run workflow" with "build only" builds without publishing, as a test.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+  workflow_dispatch:
+    inputs:
+      build_only:
+        description: Sadece derle, yayınlama (deneme)
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: version
+        name: Is this version released yet?
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "v$version zaten yayında; yayınlanacak yeni sürüm yok." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.publish == 'true' || inputs.build_only
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build and publish v${{ needs.check.outputs.version }}
+        if: ${{ !inputs.build_only }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run release
+      - name: Build only (not published)
+        if: ${{ inputs.build_only }}
+        run: |
+          node node_modules/electron-builder/cli.js --win nsis portable --x64 --publish never
+          Get-ChildItem dist -File | Format-Table Name, Length

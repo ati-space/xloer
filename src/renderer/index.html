@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="tr" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Xloer</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <script type="module" src="js/main-view.js"></script>
+  </head>
+  <body>
+    <div id="app" class="layout">
+      <nav id="rail" class="rail drag" aria-label="Ana menü">
+        <img class="rail-logo" src="img/logo.png" alt="" aria-hidden="true" />
+        <button type="button" class="rail-btn" data-rail="tasks" title="Görevler">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" /><path d="m8 12 3 3 5-6" /></svg>
+        </button>
+        <button type="button" class="rail-btn" data-rail="search" title="Ara (Ctrl+F)">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
+        </button>
+        <button type="button" class="rail-btn" data-rail="invoices" title="Faturalar">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-2.4-1.6-2 1.6-1.6-1.6-1.6 1.6-2-1.6L6 20.5z" /><path d="M14.5 8.2a3 3 0 1 0 0 4.6M8.8 9.6h4.4M8.8 11.4h4.4" /></svg>
+        </button>
+        <button type="button" class="rail-btn" data-rail="widget" title="Masaüstü widget’ını aç/kapat">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="3" /><path d="M8 8.5h8M8 12h8M8 15.5h5" /></svg>
+        </button>
+        <div class="rail-spacer"></div>
+        <button type="button" class="rail-btn" data-rail="changelog" title="Yenilikler">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.5 11.6 8.4 16.5 10 11.6 11.6 10 16.5 8.4 11.6 3.5 10 8.4 8.4z" /><path d="M17.5 14.5 18.3 16.7 20.5 17.5 18.3 18.3 17.5 20.5 16.7 18.3 14.5 17.5 16.7 16.7z" /></svg>
+          <span class="rail-dot" hidden></span>
+        </button>
+        <button type="button" class="rail-btn" data-rail="update" title="Güncellemeler">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v8.5M8.5 12.5 12 16l3.5-3.5" /></svg>
+          <span class="rail-dot" hidden></span>
+        </button>
+        <button type="button" class="rail-btn" data-rail="settings" title="Ayarlar">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="17" r="2" /></svg>
+        </button>
+      </nav>
+      <aside id="sidebar" class="sidebar" aria-label="Listeler"></aside>
+      <main class="pane-list">
+        <header id="list-header" class="list-header drag">
+          <button type="button" class="icon-btn" data-h="sidebar" title="Kenar çubuğunu aç/kapat">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6.5h16M4 12h11M4 17.5h16" /></svg>
+          </button>
+          <div class="hd-title">
+            <div class="hd-date" id="hd-date"></div>
+            <h1 class="list-title" id="hd-title"></h1>
+          </div>
+          <label class="search-box hd-search">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
+            <input id="search-input" type="search" placeholder="Rapor, kod, adım veya #etiket ara" spellcheck="false" autocomplete="off" aria-label="Ara" />
+            <span class="search-count" id="search-count"></span>
+            <span class="kbd">Ctrl F</span>
+          </label>
+          <button type="button" class="btn primary hd-new" data-h="new" id="hd-new">+ Yeni</button>
+          <div class="header-tools" id="hd-tools"></div>
+        </header>
+        <div id="stats" class="stats" hidden></div>
+        <div id="add-row" class="add-row">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          <input id="add-input" type="text" spellcheck="false" autocomplete="off" aria-label="Görev ekle" />
+        </div>
+        <div id="list-body" class="list-body scroll">
+          <div id="tree"></div>
+          <p id="list-empty" class="empty" hidden></p>
+        </div>
+      </main>
+      <section id="detail" class="pane-detail" aria-label="Görev ayrıntıları"></section>
+      <section id="invoices" class="inv-pane" aria-label="Faturalar"></section>
+    </div>
+  </body>
+</html>

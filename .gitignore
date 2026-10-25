@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+# Written by scripts/release.js from src/shared/changelog.js
+build/release-notes.md

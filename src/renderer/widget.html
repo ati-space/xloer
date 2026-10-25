@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="tr" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Xloer Widget</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/widget.css" />
+    <script type="module" src="js/widget-view.js"></script>
+  </head>
+  <body class="widget">
+    <div class="w-shell">
+      <header class="w-head drag">
+        <img class="w-logo" src="img/logo.png" alt="" aria-hidden="true" />
+        <button type="button" id="w-list" class="w-list-btn" title="Liste seç"></button>
+        <span class="flex"></span>
+        <button type="button" id="w-update" class="w-update" title="Güncelleme var" hidden></button>
+        <button type="button" id="w-pin" class="icon-btn" title="Her zaman üstte"></button>
+        <button type="button" id="w-open" class="icon-btn" title="Xloer’i aç"></button>
+        <button type="button" id="w-more" class="icon-btn" title="Widget ayarları"></button>
+      </header>
+      <div class="w-search" role="search">
+        <span id="w-search-icon" class="w-search-icon"></span>
+        <input id="w-q" type="text" placeholder="Ara… (Ctrl+F)" spellcheck="false" autocomplete="off" aria-label="Görevlerde ara" />
+        <span id="w-count" class="w-count" aria-live="polite"></span>
+        <button type="button" id="w-clear" class="icon-btn small" title="Aramayı temizle" hidden></button>
+        <button type="button" id="w-scope" class="w-scope" title="Arama kapsamı"></button>
+      </div>
+      <div id="w-add-row" class="w-add">
+        <span id="w-add-icon"></span>
+        <input id="w-add" type="text" spellcheck="false" autocomplete="off" aria-label="Görev ekle" />
+      </div>
+      <div id="w-body" class="w-body scroll">
+        <div id="w-tree" class="compact"></div>
+        <p id="w-empty" class="empty" hidden></p>
+      </div>
+    </div>
+  </body>
+</html>

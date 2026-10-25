@@ -1,0 +1,66 @@
+{
+  "name": "xloer",
+  "productName": "Xloer",
+  "version": "1.10.0",
+  "description": "Xloer: Windows masaüstü için görev, rapor ve fatura takip uygulaması",
+  "author": "Mericsdc",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.js\"",
+    "icon": "electron scripts/make-icon.js",
+    "dist:win": "electron-builder --win nsis portable --x64",
+    "dist:zip": "electron-builder --win zip --x64",
+    "release": "node scripts/release.js"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.10"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "com.mericsdc.xloer",
+    "productName": "Xloer",
+    "copyright": "© 2026 Mericsdc",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "artifactName": "${productName}-${version}-win-x64.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Xloer",
+      "artifactName": "Xloer-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Xloer-Portable-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ati-space",
+        "repo": "xloer"
+      }
+    ]
+  }
+}
