@@ -8,6 +8,16 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.12.0',
+    date: '2026-10-26',
+    title: 'Aramada alt görevler, widget sabitleme',
+    items: [
+      ['better', 'Arama yapıldığında projelerin alt görevleri de gelir: eşleşen görevin altındaki her şey sonuçta görünür (widget’ta ve ana pencerede)'],
+      ['better', 'Widget’taki iğne artık yalnız masaüstündeki yerini sabitler; widget diğer uygulamaların üstünde durmaz. İstenirse ⋯ → “Diğer pencerelerin üstünde dur”'],
+      ['fix', 'Önceden iğneyle sabitlenmiş widget yerinde kalır ama artık her pencerenin üstüne çıkmaz'],
+    ],
+  },
+  {
     version: '1.11.0',
     date: '2026-10-26',
     title: 'Yeni temalar',

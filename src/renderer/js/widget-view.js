@@ -75,8 +75,9 @@ function render() {
   const list = currentList();
   const w = widget();
   els.list.innerHTML = `<span class="emoji">${esc(list.emoji)}</span><span class="name">${esc(list.name)}</span>${icon('chevron', 14)}`;
-  els.pin.classList.toggle('on', w.alwaysOnTop);
-  els.pin.title = w.alwaysOnTop ? 'Her zaman üstte: açık' : 'Her zaman üstte: kapalı';
+  els.pin.classList.toggle('on', w.locked);
+  els.pin.title = w.locked ? 'Masaüstündeki yeri sabit (bırakmak için tıkla)' : 'Masaüstündeki yerini sabitle';
+  els.pin.setAttribute('aria-pressed', String(w.locked));
   els.scope.textContent = w.scope === 'all' ? 'Tüm listeler' : 'Bu liste';
   els.scope.setAttribute('aria-pressed', String(w.scope === 'all'));
 
@@ -143,7 +144,9 @@ els.list.addEventListener('click', () => {
   ]);
 });
 
-els.pin.addEventListener('click', () => setWidget({ alwaysOnTop: !widget().alwaysOnTop }));
+// The pin fixes the widget's place on the desktop; staying above other
+// windows is a separate choice in the ⋯ menu.
+els.pin.addEventListener('click', () => setWidget({ locked: !widget().locked }));
 els.update.addEventListener('click', () => api.update.openPanel());
 
 function showUpdate(u) {
@@ -157,8 +160,8 @@ els.more.addEventListener('click', () => {
   const w = widget();
   const list = currentList();
   menuAt(els.more, [
-    { label: 'Her zaman üstte', icon: 'pin', checked: w.alwaysOnTop, action: () => setWidget({ alwaysOnTop: !w.alwaysOnTop }) },
-    { label: 'Konumu kilitle', icon: w.locked ? 'lock' : 'unlock', checked: w.locked, action: () => setWidget({ locked: !w.locked }) },
+    { label: 'Yerini sabitle', icon: 'pin', checked: w.locked, action: () => setWidget({ locked: !w.locked }) },
+    { label: 'Diğer pencerelerin üstünde dur', icon: 'widget', checked: w.alwaysOnTop, action: () => setWidget({ alwaysOnTop: !w.alwaysOnTop }) },
     {
       label: 'Opaklık',
       icon: 'opacity',

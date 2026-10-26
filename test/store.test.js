@@ -191,3 +191,13 @@ test('reports carry a stage and a project code; counts and rows follow them', as
   assert.equal(buildSearchRows(s, '0001-0001').matches, 1);
   assert.equal(normalizeState({ lists: [], tasks: [{ id: 'x', title: 'a', stage: '2', code: 5 }] }).tasks[0].stage, null);
 });
+
+test('widget pin: fixes the place; a pin from before 1.12 stops floating', () => {
+  const old = normalizeState({ lists: [], tasks: [], settings: { widget: { alwaysOnTop: true, locked: false } } }).settings.widget;
+  assert.deepEqual([old.locked, old.alwaysOnTop, old.pinLocks], [true, false, true]);
+  const chosen = normalizeState({ lists: [], tasks: [], settings: { widget: { alwaysOnTop: true, pinLocks: true } } }).settings.widget;
+  assert.deepEqual([chosen.locked, chosen.alwaysOnTop], [false, true], 'staying on top chosen after 1.12 is kept');
+  const s = emptyState();
+  dispatch(s, { type: 'settings/update', patch: { widget: { locked: true } } });
+  assert.deepEqual([s.settings.widget.locked, s.settings.widget.alwaysOnTop], [true, false]);
+});

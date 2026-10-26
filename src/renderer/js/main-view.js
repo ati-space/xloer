@@ -948,8 +948,8 @@ async function openSettings() {
     <section>
       <h3>Masaüstü widget’ı</h3>
       <label class="check-row"><input type="checkbox" data-w="visible" ${checked(w.visible)}><span>Widget’ı göster</span></label>
-      <label class="check-row"><input type="checkbox" data-w="alwaysOnTop" ${checked(w.alwaysOnTop)}><span>Her zaman diğer pencerelerin üstünde</span></label>
-      <label class="check-row"><input type="checkbox" data-w="locked" ${checked(w.locked)}><span>Konumu ve boyutu kilitle</span></label>
+      <label class="check-row"><input type="checkbox" data-w="locked" ${checked(w.locked)}><span>Masaüstündeki yerini ve boyutunu sabitle (widget’taki iğne)</span></label>
+      <label class="check-row"><input type="checkbox" data-w="alwaysOnTop" ${checked(w.alwaysOnTop)}><span>Diğer pencerelerin üstünde dur</span></label>
       <label class="range-row"><span>Opaklık</span><input type="range" min="30" max="100" step="5" data-w="opacity" value="${Math.round(w.opacity * 100)}"><output>${Math.round(w.opacity * 100)}%</output></label>
     </section>
     <section>

@@ -33,14 +33,16 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
 - Türkçe karakterlere duyarsızdır: `ing` yazınca “İNG”, “ING”, “İng” bulunur;
   `odeme` → “ödeme”. Birden çok kelime birlikte aranır (`acme rapor`).
 - `#RAPOR` yalnızca etikette arar. Açıklamalarda (notlarda) da arar.
-- Sonuçlar ağaç olarak gösterilir: bulunan alt görevin üst başlığı soluk görünür.
+- Sonuçlar ağaç olarak gösterilir: bulunan görevin alt görevleri de gelir, üst
+  başlığı soluk görünür.
 - Widget’ta “Bu liste / Tüm listeler” düğmesi aramanın kapsamını değiştirir.
   `Enter` ilk sonucu ana pencerede açar.
 
 **Widget**
 - Masaüstünde ayrı, çerçevesiz bir pencere; görev çubuğunda yer kaplamaz.
 - Liste seçimi, hızlı ekleme, tamamlama, sürükle-bırak, sağ tık menüsü.
-- İğne simgesi: her zaman üstte. `⋯` menüsü: konumu kilitle, opaklık, gizle.
+- İğne simgesi: widget’ın masaüstündeki yerini sabitler (diğer pencerelerin üstüne
+  çıkmaz). `⋯` menüsü: diğer pencerelerin üstünde dur, opaklık, gizle.
 - Satırın sağındaki ↗ simgesi görevi ana pencerede açar.
 
 **Rapor aşamaları ve proje kodu**

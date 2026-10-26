@@ -37,6 +37,7 @@ export function defaultSettings() {
       alwaysOnTop: false,
       locked: false,
       scope: 'list', // search scope: list | all
+      pinLocks: true, // the pin fixes the place (before 1.12 it kept the widget on top)
     },
   };
 }
@@ -93,6 +94,10 @@ function uniqueStrings(arr) {
 function normalizeSettings(raw = {}) {
   const d = defaultSettings();
   const w = { ...d.widget, ...(raw.widget && typeof raw.widget === 'object' ? raw.widget : {}) };
+  // Until 1.12 the widget's pin kept it above every window; now the pin only
+  // fixes its place on the desktop. A widget pinned before keeps its place
+  // and stops floating over other apps.
+  const oldPin = raw.widget?.pinLocks !== true && w.alwaysOnTop === true;
   return {
     theme: ['dark', 'light', 'system'].includes(raw.theme) ? raw.theme : d.theme,
     palette: PALETTES.some((p) => p.id === raw.palette) ? raw.palette : d.palette,
@@ -104,9 +109,10 @@ function normalizeSettings(raw = {}) {
       visible: typeof w.visible === 'boolean' ? w.visible : d.widget.visible,
       listId: typeof w.listId === 'string' ? w.listId : null,
       opacity: clamp(Number.isFinite(w.opacity) ? w.opacity : 1, 0.3, 1),
-      alwaysOnTop: !!w.alwaysOnTop,
-      locked: !!w.locked,
+      alwaysOnTop: oldPin ? false : !!w.alwaysOnTop,
+      locked: oldPin || !!w.locked,
       scope: w.scope === 'all' ? 'all' : 'list',
+      pinLocks: true,
     },
   };
 }

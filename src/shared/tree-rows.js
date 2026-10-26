@@ -168,8 +168,9 @@ export function buildTrashRows(state) {
     });
 }
 
-// Search results as a filtered tree: matching tasks with their ancestors as
-// context, inside their sections; grouped by list when searching every list.
+// Search results as a filtered tree: matching tasks with their subtasks and,
+// as dimmed context, their ancestors, inside their sections; grouped by list
+// when searching every list.
 export function buildSearchRows(state, query, { listId = null, includeDone = true } = {}) {
   const terms = parseQuery(query);
   if (!terms.length) return { rows: [], matches: 0, terms };
@@ -185,6 +186,18 @@ export function buildSearchRows(state, query, { listId = null, includeDone = tru
     keep.add(id);
     for (const a of ancestors(index, index.byId.get(id))) keep.add(a.id);
   }
+  // A matching task comes with all its subtasks: searching for a project is
+  // looking for what is under it.
+  const below = new Set();
+  const addBelow = (id) => {
+    for (const c of index.children(id)) {
+      if ((!includeDone && c.done) || below.has(c.id)) continue;
+      below.add(c.id);
+      keep.add(c.id);
+      addBelow(c.id);
+    }
+  };
+  for (const id of hits.keys()) addBelow(id);
   const lists = listId ? [getList(state, listId)].filter(Boolean) : orderedLists(state);
   const rows = [];
   for (const list of lists) {
@@ -197,7 +210,7 @@ export function buildSearchRows(state, query, { listId = null, includeDone = tru
       out.push(
         taskRow(t, depth, index, {
           childCount: kids.length,
-          context: !hit,
+          context: !hit && !below.has(t.id),
           snippet: hit && !hit.inTitle && hit.inNotes ? snippet(t.notes, terms) : null,
         }),
       );

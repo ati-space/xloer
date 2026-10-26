@@ -140,3 +140,23 @@ test('search: Turkish folding, ancestors as context, notes snippets', () => {
   assert.equal(buildSearchRows(s, 'tank yakıt').matches, 1);
   assert.equal(buildSearchRows(s, 'zzz').rows.length, 0);
 });
+
+test('search: a matching task brings its subtasks, not dimmed', () => {
+  const s = seedState();
+  const { rows, matches } = buildSearchRows(s, 'omega');
+  assert.equal(matches, 1);
+  const tasks = rows.filter((r) => r.kind === 'task');
+  assert.deepEqual(
+    tasks.map((r) => [r.task.title, r.depth, !!r.context]),
+    [
+      ['OMEGA Invertör', 0, false],
+      ['Fatura Kesildi.', 1, false],
+      ['İNG RAPOR 10.10.2026', 1, false],
+    ],
+  );
+  assert.equal(tasks[0].childCount, 2);
+  // Done subtasks stay out when done tasks are left out.
+  const kids = s.tasks.filter((t) => t.parentId === tasks[0].task.id);
+  dispatch(s, { type: 'task/toggle', id: kids[0].id });
+  assert.equal(buildSearchRows(s, 'omega', { includeDone: false }).rows.filter((r) => r.kind === 'task').length, 2);
+});
