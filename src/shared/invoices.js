@@ -55,6 +55,24 @@ export function lastTestDate(invoice) {
   }, null);
 }
 
+// The year a project's amount belongs to: the one chosen on its card (as the
+// sheet kept a table per year), else the year of its last test. A project
+// tested in late 2025 and paid in 2026 is simply set to 2026.
+export function billingYear(invoice) {
+  if (Number.isInteger(invoice.year)) return invoice.year;
+  const d = lastTestDate(invoice);
+  return d ? Number(d.slice(0, 4)) : null;
+}
+
+// Year and, when its last test fell in that year, the month it counts in.
+// Tested in another year or not at all: no month ("Devir" on the Pano).
+export function billingPeriod(invoice) {
+  const year = billingYear(invoice);
+  if (year == null) return null;
+  const d = lastTestDate(invoice);
+  return { year, month: d && Number(d.slice(0, 4)) === year ? Number(d.slice(5, 7)) : null };
+}
+
 export const INVOICE_ORDERS = {
   no: 'No · yeniden eskiye',
   'no-asc': 'No · eskiden yeniye',

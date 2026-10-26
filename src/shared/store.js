@@ -243,6 +243,8 @@ function normalizeInvoice(i) {
     amount: Number.isFinite(i.amount) && i.amount >= 0 ? i.amount : null,
     rows: (Array.isArray(i.rows) ? i.rows : []).map(normalizeRow).filter((r) => r && !ids.has(r.id) && ids.add(r.id)),
     customer: str(i.customer, '').trim(),
+    // The year the amount counts in, chosen on the card; null: the last test's.
+    year: Number.isInteger(i.year) && i.year >= 2000 && i.year <= 2100 ? i.year : null,
     // From Excel: the "Proje Kodu" cell when it disagreed with the title.
     ...(i.fromSheet === true && { fromSheet: true }),
     ...(typeof i.sheetCode === 'string' && i.sheetCode && { sheetCode: i.sheetCode }),
@@ -812,9 +814,9 @@ const handlers = {
 
   // ---------------------------------------------------------------- invoices
 
-  'invoice/create'(s, { code = '', title = '', ref = '' } = {}) {
+  'invoice/create'(s, { code = '', title = '', ref = '', year = null } = {}) {
     const now = Date.now();
-    const invoice = normalizeInvoice({ id: uid('f'), no: Math.max(0, ...s.invoices.map((i) => i.no)) + 1, code, title, ref, rows: [], createdAt: now });
+    const invoice = normalizeInvoice({ id: uid('f'), no: Math.max(0, ...s.invoices.map((i) => i.no)) + 1, code, title, ref, year, rows: [], createdAt: now });
     s.invoices.push(invoice);
     return invoice.id;
   },
@@ -822,9 +824,18 @@ const handlers = {
   'invoice/update'(s, { id, patch = {} }) {
     const inv = mustInvoice(s, id);
     for (const k of ['code', 'title', 'ref', 'customer']) if (k in patch) inv[k] = typeof patch[k] === 'string' ? patch[k].trim() : inv[k];
+    if ('year' in patch) inv.year = normalizeInvoice({ id: inv.id, year: patch.year }).year;
     if ('no' in patch && Number.isInteger(patch.no) && patch.no > 0) inv.no = patch.no;
     if ('amount' in patch) inv.amount = Number.isFinite(patch.amount) && patch.amount >= 0 ? Math.round(patch.amount * 100) / 100 : null;
     inv.updatedAt = Date.now();
+  },
+
+  // Puts projects under a year (null: the year of their last test again).
+  'invoice/set-year'(s, { ids = [], year = null }) {
+    const value = normalizeInvoice({ id: 'x', year }).year;
+    if (year != null && value == null) throw new Error('Geçersiz yıl');
+    for (const id of ids) mustInvoice(s, id).year = value;
+    return ids.length;
   },
 
   // One id, or several at once ("Hepsini kaldır").
@@ -891,7 +902,9 @@ const handlers = {
   // Projects read from the invoice workbook. A project already here is
   // brought in line with the workbook (its test rows replaced); devices and
   // tests the lists do not know yet are added.
-  'invoice/import'(s, { projects = [] }) {
+  // `year`: the year the sheet is for (from its file name), set on every
+  // project in it; without one a project keeps the year it had.
+  'invoice/import'(s, { projects = [], year = null }) {
     const before = { devices: s.devices.length, tests: s.testTypes.length };
     const used = new Set();
     const fresh = [];
@@ -910,7 +923,7 @@ const handlers = {
         if (device) r.device = device;
         else if (r.device && r.start) s.devices.push({ name: r.device, test: r.test });
       }
-      const fields = { code: p.code ?? '', title: p.title ?? '', ref: p.ref ?? '', amount: p.amount ?? null, rows, fromSheet: true, sheetCode: p.sheetCode ?? null, dismissed: [] };
+      const fields = { code: p.code ?? '', title: p.title ?? '', ref: p.ref ?? '', amount: p.amount ?? null, rows, fromSheet: true, sheetCode: p.sheetCode ?? null, dismissed: [], ...(year != null && { year }) };
       const match = findInvoiceMatch(s, p, used);
       if (match) {
         used.add(match.id);

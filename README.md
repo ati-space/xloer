@@ -83,6 +83,12 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
     cihaz ve testler listeye eklenir. Bildirimdeki “Geri al” içe aktarmanın
     tamamını geri alır. Eski .xls okunmaz; Excel’de .xlsx olarak kaydet.
 - **Sırala:** No’ya ya da son test tarihine göre, yeniden eskiye veya eskiden yeniye.
+- **Fatura yılı:** her proje bir yıla aittir; kartın altındaki “Yıl” ile seçilir
+  (Otomatik: son testin yılı). 2025 sonunda yapılıp 2026’da ödenen bir iş 2026’ya
+  alınır ve tutarı 2026 toplamına eklenir. Araç çubuğundaki “Yıl” seçimi yalnız o
+  yılın projelerini ve başlıkta o yılın toplamını gösterir; seçili kartlar “Yıla
+  taşı” ile tek seferde taşınır. Excel içe aktarılırken dosya adındaki yıl
+  (“fatura 2026.xlsx”) projelere verilir.
 - **Kontrol edilecekler (Uyarılı):** Excel’den gelen kartlarda şunlar işaretlenir:
   Gün / Vardiya’nın tarihlerle uyuşmaması (satırın altında “Excel 1/3”), düzeltilen
   yıl yazımı (“22.05.206”), Gün / Vardiya’dan hesaplanan bitiş, başlıkla çelişen

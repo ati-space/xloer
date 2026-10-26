@@ -86,3 +86,49 @@ test('customer summary: amount, projects and days per customer in the period', a
     ],
   );
 });
+
+test('billing year: a project tested in late 2025 can count in 2026', async () => {
+  const { billingYear, billingPeriod } = await import('../src/shared/invoices.js');
+  const { dispatch, emptyState } = await import('../src/shared/store.js');
+  const s = emptyState();
+  const late = dispatch(s, { type: 'invoice/create', code: 'A' });
+  dispatch(s, { type: 'invoice/row-add', id: late, row: { device: 'Solar Kabin', start: '2025-12-25' } });
+  dispatch(s, { type: 'invoice/update', id: late, patch: { amount: 315 } });
+  const now = dispatch(s, { type: 'invoice/create', code: 'B', year: 2026 });
+  dispatch(s, { type: 'invoice/row-add', id: now, row: { device: 'Solar Kabin', start: '2026-03-02' } });
+  dispatch(s, { type: 'invoice/update', id: now, patch: { amount: 1000 } });
+  const undated = dispatch(s, { type: 'invoice/create', code: 'C' });
+  dispatch(s, { type: 'invoice/update', id: undated, patch: { amount: 50 } });
+  const byId = (id) => s.invoices.find((i) => i.id === id);
+
+  assert.equal(billingYear(byId(late)), 2025, 'without a year: the last test’s');
+  assert.deepEqual(yearlySummary(s.invoices).map((y) => [y.year, y.amount]), [[2025, 315], [2026, 1000]]);
+  assert.deepEqual(undatedInvoices(s.invoices), { projects: 1, amount: 50 });
+
+  assert.equal(dispatch(s, { type: 'invoice/set-year', ids: [late, undated], year: 2026 }), 2);
+  assert.deepEqual(billingPeriod(byId(late)), { year: 2026, month: null });
+  assert.deepEqual(yearlySummary(s.invoices).map((y) => [y.year, y.amount, y.projects]), [[2025, 0, 0], [2026, 1365, 3]], 'the 2025 test days stay in 2025');
+  assert.equal(yearlySummary(s.invoices)[0].days, 1);
+  const months = monthlySummary(s.invoices, 2026);
+  assert.equal(months.length, 13);
+  assert.deepEqual([months[0].label, months[0].amount, months[0].projects], ['Devir', 365, 2]);
+  assert.equal(months[3].amount, 1000, 'March');
+  assert.equal(periodSummary(s.invoices, '2026-01-01', '2026-01-31').amount, 0, 'Devir is in no month');
+  assert.equal(periodSummary(s.invoices, '2026-01-01', '2026-12-31').amount, 1365);
+  assert.deepEqual(undatedInvoices(s.invoices), { projects: 0, amount: 0 });
+  assert.deepEqual(invoiceYears(s.invoices), [2026, 2025]);
+
+  dispatch(s, { type: 'invoice/set-year', ids: [late], year: null });
+  assert.equal(billingYear(byId(late)), 2025, 'back to the test year');
+  assert.throws(() => dispatch(s, { type: 'invoice/set-year', ids: [late], year: 1999 }), /Geçersiz yıl/);
+});
+
+test('import: the year in the file name goes on every project of the sheet', async () => {
+  const { dispatch, emptyState } = await import('../src/shared/store.js');
+  const s = emptyState();
+  const projects = [{ no: 1, code: 'P25-0001-0001', title: 'ÖRNEK', rows: [{ test: 'Titreşim Testi', device: '70kN Sarsıcı', start: '2025-12-25', end: '2025-12-26' }], amount: 100 }];
+  dispatch(s, { type: 'invoice/import', projects, year: 2026 });
+  assert.equal(s.invoices[0].year, 2026);
+  dispatch(s, { type: 'invoice/import', projects });
+  assert.equal(s.invoices[0].year, 2026, 'a sheet without a year keeps the project’s');
+});

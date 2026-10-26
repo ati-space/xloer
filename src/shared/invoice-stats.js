@@ -1,9 +1,11 @@
-// Numbers behind the Faturalar dashboard ("Pano"). The sheet has no invoice
-// date, so a project's amount counts in the month of its last test. Test days
-// and device time count on the days the tests ran, cut to the period.
+// Numbers behind the Faturalar dashboard ("Pano"). A project's amount counts
+// in its year (chosen on the card, else its last test's) and, when its last
+// test fell in that year, in that month; one tested in another year or not
+// at all counts in the year but in no month ("Devir"). Test days and device
+// time count on the days the tests ran, cut to the period.
 
 import { fold } from './search.js';
-import { SHIFTS_PER_DAY, lastTestDate } from './invoices.js';
+import { SHIFTS_PER_DAY, billingPeriod } from './invoices.js';
 import { customerKey, customerOf } from './customers.js';
 
 export const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -38,35 +40,56 @@ function testDays(invoices, from, to) {
   return invoices.reduce((n, inv) => n + inv.rows.reduce((m, r) => m + rowDates(r, from, to).length, 0), 0);
 }
 
+// Whether a project's amount falls in [from, to]: its month must be inside;
+// a project with no month only counts when the whole year is.
+function billedIn(inv, from, to) {
+  const b = billingPeriod(inv);
+  if (!b) return false;
+  if (b.month == null) return from <= `${b.year}-01-01` && to >= `${b.year}-12-31`;
+  const ym = `${b.year}-${String(b.month).padStart(2, '0')}`;
+  return ym >= from.slice(0, 7) && ym <= to.slice(0, 7);
+}
+
+const amountOf = (list) => round2(list.reduce((n, inv) => n + (inv.amount ?? 0), 0));
+
 // Amount and projects billed in [from, to], and the test days run in it.
 export function periodSummary(invoices, from, to) {
-  const billed = invoices.filter((inv) => {
-    const d = lastTestDate(inv);
-    return d && d >= from && d <= to;
-  });
+  const billed = invoices.filter((inv) => billedIn(inv, from, to));
   const days = testDays(invoices, from, to);
   return {
     from,
     to,
-    amount: round2(billed.reduce((n, inv) => n + (inv.amount ?? 0), 0)),
+    amount: amountOf(billed),
     projects: billed.length,
     days,
     shifts: days * SHIFTS_PER_DAY,
   };
 }
 
-// Years that have a test date, newest first.
+// Years a project counts in or a test ran in, newest first.
 export function invoiceYears(invoices) {
   const years = new Set();
-  for (const inv of invoices) for (const r of inv.rows) for (const d of [r.start, r.end]) if (d) years.add(Number(d.slice(0, 4)));
+  for (const inv of invoices) {
+    const b = billingPeriod(inv);
+    if (b) years.add(b.year);
+    for (const r of inv.rows) for (const d of [r.start, r.end]) if (d) years.add(Number(d.slice(0, 4)));
+  }
   return [...years].sort((a, b) => b - a);
 }
 
+// The twelve months, led by "Devir" when some of the year's projects have
+// no month in it (tested the year before, or undated).
 export function monthlySummary(invoices, year) {
-  return MONTHS.map((label, i) => {
+  const months = MONTHS.map((label, i) => {
     const { from, to } = periodRange(year, i + 1);
     return { month: i + 1, label, ...periodSummary(invoices, from, to) };
   });
+  const carried = invoices.filter((inv) => {
+    const b = billingPeriod(inv);
+    return b && b.year === year && b.month == null;
+  });
+  if (!carried.length) return months;
+  return [{ month: 0, label: 'Devir', carry: true, amount: amountOf(carried), projects: carried.length, days: 0, shifts: 0 }, ...months];
 }
 
 // Oldest year first, like the months.
@@ -79,9 +102,9 @@ export function yearlySummary(invoices) {
     });
 }
 
-// Projects with no test date: their amount is in no month.
+// Projects with neither a year nor a test date: their amount is nowhere.
 export function undatedInvoices(invoices) {
-  const list = invoices.filter((inv) => !lastTestDate(inv));
+  const list = invoices.filter((inv) => !billingPeriod(inv));
   return { projects: list.length, amount: round2(list.reduce((n, inv) => n + (inv.amount ?? 0), 0)) };
 }
 

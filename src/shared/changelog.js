@@ -8,6 +8,17 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.14.0',
+    date: '2026-10-26',
+    title: 'Fatura yılı',
+    items: [
+      ['new', 'Her proje bir yıla atanabilir, test tarihinden bağımsız: kartta “Yıl” seçilir (Otomatik: son testin yılı). Tutarı seçilen yılın toplamına eklenir, Excel’deki yıllık tablolar gibi'],
+      ['new', 'Faturalar’da “Yıl” seçimi: o yılın projeleri ve başlıkta o yılın toplamı. Seçili kartlar “Yıla taşı” ile tek seferde başka yıla alınır'],
+      ['better', 'Pano yılları fatura yılına göre toplar; testi önceki yılda olup bu yıla yazılan projeler aylık grafikte “Devir” sütununda'],
+      ['better', 'Excel’i içe aktarırken dosya adındaki yıl (ör. “fatura 2026.xlsx”) projelerin yılı olur'],
+    ],
+  },
+  {
     version: '1.13.0',
     date: '2026-10-26',
     title: 'Tek başlık alanı',

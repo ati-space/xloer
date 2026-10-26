@@ -8,7 +8,7 @@ import * as A from './actions.js';
 import { confirmModal, esc, menuAt, modal, toast } from './ui.js';
 import { todayStr } from '../../shared/store.js';
 import { fold } from '../../shared/search.js';
-import { INVOICE_ORDERS, formatAmount, formatEuro, invoiceTitle, parseAmount, parseInvoiceTitle, shiftLabel, sortInvoices, sortedRows, totalAmount } from '../../shared/invoices.js';
+import { INVOICE_ORDERS, billingYear, formatAmount, formatEuro, invoiceTitle, lastTestDate, parseAmount, parseInvoiceTitle, shiftLabel, sortInvoices, sortedRows, totalAmount } from '../../shared/invoices.js';
 import { readWorkbook } from '../../shared/xlsx.js';
 import { createInvoiceDash } from './invoice-dash.js';
 import { calendarAnchor, closeCalendar, openCalendar, updateCalendar } from './calendar.js';
@@ -20,6 +20,14 @@ import { parseInvoiceWorkbook } from '../../shared/invoice-import.js';
 
 const NEW = '__new';
 const ORDER_KEY = 'xloer-invoice-order';
+const YEAR_KEY = 'xloer-invoice-year';
+const thisYear = () => Number(todayStr().slice(0, 4));
+
+// The year a sheet is for, from its file name ("fatura 2026.xlsx").
+function fileYear(name) {
+  const m = /(?:^|\D)(20\d{2})(?!\d)/.exec(name);
+  return m ? Number(m[1]) : null;
+}
 const TAB_KEY = 'xloer-invoice-tab';
 
 function loadOrder() {
@@ -37,6 +45,11 @@ export function createInvoicesView(el, { onToggleSidebar }) {
   let focusAfter = null;
   let manageBox = null;
   let order = loadOrder();
+  // Like the sheet's table per year: show one year's projects, or all.
+  let yearFilter = null;
+  try {
+    yearFilter = Number(localStorage.getItem(YEAR_KEY)) || null;
+  } catch {}
   let tab = 'cards';
   try {
     if (localStorage.getItem(TAB_KEY) === 'dash') tab = 'dash';
@@ -59,7 +72,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
         <button type="button" role="radio" data-tab="cards">Projeler</button>
         <button type="button" role="radio" data-tab="dash">Pano</button>
       </div>
-      <div class="inv-total" title="Tüm projelerden kesilen toplam tutar"><span>Kesilen toplam</span><b id="inv-total"></b></div>
+      <div class="inv-total" title="Kesilen toplam tutar"><span id="inv-total-label">Kesilen toplam</span><b id="inv-total"></b></div>
       <button type="button" class="btn primary hd-new" data-i="new">+ Yeni proje</button>
       <button type="button" class="icon-btn" data-i="menu" title="Diğer">${icon('more')}</button>
     </header>
@@ -70,10 +83,12 @@ export function createInvoicesView(el, { onToggleSidebar }) {
       <button type="button" class="inv-chip" data-i="only-issues" aria-pressed="false" hidden></button>
       <button type="button" class="icon-btn small" data-i="pick-none" title="Seçimi temizle (Esc)" aria-label="Seçimi temizle" hidden>${icon('x', 13)}</button>
       <span class="flex"></span>
+      <label class="inv-order" title="Projelerin sayıldığı yıl"><span>Yıl</span><select id="inv-year"></select></label>
       <label class="inv-order" title="Kartların sırası"><span>Sırala</span><select id="inv-order">${Object.entries(INVOICE_ORDERS)
         .map(([k, v]) => `<option value="${k}"${k === order ? ' selected' : ''}>${esc(v)}</option>`)
         .join('')}</select></label>
       <button type="button" class="link-btn inv-xlsx" data-i="xlsx" title="Excel fatura dosyasını seç ya da pencereye sürükle">${icon('download', 14)}Excel’den al</button>
+      <button type="button" class="link-btn inv-move-year" data-i="move-year" hidden>${icon('calendar', 14)}Yıla taşı</button>
       <button type="button" class="link-btn danger inv-clear" data-i="clear">${icon('trash', 14)}<span></span></button>
       <input type="file" id="inv-file" accept=".xlsx,.xlsm" hidden>
     </div>
@@ -101,6 +116,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
   }
 
   function matches(inv) {
+    if (yearFilter && billingYear(inv) !== yearFilter) return false;
     if (onlyIssues && !issuesOf(inv).length) return false;
     if (!filter.trim()) return true;
     const hay = fold([inv.no, inv.code, inv.title, inv.ref, customerOf(inv), ...inv.rows.flatMap((r) => [r.device, r.test])].join(' '));
@@ -142,6 +158,26 @@ export function createInvoicesView(el, { onToggleSidebar }) {
       .join('')}</div>`;
   }
 
+  // Years offered on a card and in "Yıla taşı": every year in use, and this
+  // year with the ones either side.
+  function yearChoices() {
+    const years = new Set([thisYear() - 1, thisYear(), thisYear() + 1]);
+    for (const inv of state.invoices) {
+      const y = billingYear(inv);
+      if (y) years.add(y);
+    }
+    return [...years].sort((a, b) => b - a);
+  }
+
+  // The year the amount counts in: chosen here, or the last test's ("Otomatik").
+  function yearFieldHtml(inv) {
+    const test = lastTestDate(inv)?.slice(0, 4);
+    return `<label class="inv-year-field" title="Tutarın sayılacağı yıl; test tarihinden bağımsız seçilebilir"><span>Yıl</span><select data-f="year" aria-label="Fatura yılı">
+      <option value=""${inv.year ? '' : ' selected'}>Otomatik${test ? ` (${test})` : ''}</option>
+      ${yearChoices().map((y) => `<option value="${y}"${inv.year === y ? ' selected' : ''}>${y}</option>`).join('')}
+    </select></label>`;
+  }
+
   function cardHtml(inv) {
     const rows = sortedRows(inv);
     const on = selected.has(inv.id);
@@ -165,6 +201,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
       </div>
       <footer class="inv-card-foot">
         <button type="button" class="link-btn" data-i="row-add">${icon('plus', 14)}Test ekle</button>
+        ${yearFieldHtml(inv)}
         <label class="inv-customer" title="Müşteri (boşsa başlıktan okunur)"><span>Müşteri</span><input data-f="customer" value="${esc(inv.customer)}" placeholder="${esc(customerOf(inv) || 'Müşteri')}" spellcheck="false" aria-label="Müşteri"></label>
         <span class="flex"></span>
         <label class="inv-amount"><span>Tutar</span><span class="cur">€</span><input data-f="amount" inputmode="decimal" value="${formatAmount(inv.amount)}" placeholder="0,00" aria-label="Tutar (€)"></label>
@@ -176,8 +213,19 @@ export function createInvoicesView(el, { onToggleSidebar }) {
 
   // Count, remove button and the "all" box follow the selection: with ticks
   // the button removes the ticked cards, else what the search shows, else all.
+  function renderYearFilter() {
+    const select = el.querySelector('#inv-year');
+    const years = [...new Set(state.invoices.map(billingYear).filter(Boolean).concat(yearFilter ?? []))].sort((a, b) => b - a);
+    select.innerHTML = `<option value="">Tümü</option>${years.map((y) => `<option value="${y}"${y === yearFilter ? ' selected' : ''}>${y}</option>`).join('')}`;
+  }
+
   function renderTotals(shown) {
-    el.querySelector('#inv-total').textContent = formatEuro(totalAmount(state.invoices));
+    // With a year chosen the header shows that year's total, as each yearly
+    // table in the sheet had its own.
+    const counted = yearFilter ? state.invoices.filter((i) => billingYear(i) === yearFilter) : state.invoices;
+    el.querySelector('#inv-total').textContent = formatEuro(totalAmount(counted));
+    el.querySelector('#inv-total-label').textContent = yearFilter ? `${yearFilter} toplamı` : 'Kesilen toplam';
+    renderYearFilter();
     const picked = pickedInvoices();
     const clear = el.querySelector('.inv-clear');
     const filtered = shown.length < state.invoices.length;
@@ -187,9 +235,9 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     const count = el.querySelector('#inv-count');
     count.textContent = picked.length
       ? `${picked.length} seçili · ${formatEuro(totalAmount(picked))}`
-      : filter.trim()
-        ? `${shown.length} / ${state.invoices.length} proje · ${formatEuro(totalAmount(shown))}`
-        : `${state.invoices.length} proje`;
+      : filter.trim() || onlyIssues
+        ? `${shown.length} / ${counted.length} proje · ${formatEuro(totalAmount(shown))}`
+        : `${counted.length} proje`;
     count.classList.toggle('picking', picked.length > 0);
     const flagged = state.invoices.filter((i) => issuesOf(i).length).length;
     const chip = el.querySelector('[data-i="only-issues"]');
@@ -198,6 +246,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     chip.innerHTML = `${icon('alert', 13)}Uyarılı (${flagged})`;
     chip.title = onlyIssues ? 'Tüm projeleri göster' : 'Yalnız kontrol edilecek projeleri göster';
     el.querySelector('[data-i="pick-none"]').hidden = !picked.length;
+    el.querySelector('[data-i="move-year"]').hidden = !picked.length;
     const all = el.querySelector('#inv-pick-all');
     const onScreen = shown.filter((i) => selected.has(i.id)).length;
     all.checked = shown.length > 0 && onScreen === shown.length;
@@ -268,7 +317,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
 
   async function newProject() {
     if (tab !== 'cards') setTab('cards');
-    const id = await A.run({ type: 'invoice/create' });
+    const id = await A.run({ type: 'invoice/create', year: yearFilter });
     if (!id) return;
     await A.run({ type: 'invoice/row-add', id, row: { start: todayStr() } });
     focusAfter = { id, f: 'heading' };
@@ -331,6 +380,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
         field.value = formatAmount(amount);
         return A.run({ type: 'invoice/update', id, patch: { amount } });
       }
+      if (f === 'year') return A.run({ type: 'invoice/update', id, patch: { year: field.value ? Number(field.value) : null } });
       if (f === 'heading') {
         // One field, stored as code / title / ref as before.
         const parts = parseInvoiceTitle(field.value);
@@ -518,12 +568,13 @@ export function createInvoicesView(el, { onToggleSidebar }) {
       return toast('Dosyada proje bulunamadı: “Proje Kodu” ve “Test / Test Sistemi / Test Tarihi” başlıkları olan bloklar aranıyor.', { error: true, timeout: 8000 });
     }
     const before = structuredClone({ invoices: state.invoices, devices: state.devices, testTypes: state.testTypes });
-    const r = await A.run({ type: 'invoice/import', projects });
+    const year = fileYear(file.name);
+    const r = await A.run({ type: 'invoice/import', projects, year });
     if (!r) return;
     filter = filterInput.value = '';
     body.scrollTop = 0;
     render(null, { force: true });
-    const parts = [r.created && `${r.created} proje eklendi`, r.updated && `${r.updated} proje güncellendi`, r.devicesAdded && `${r.devicesAdded} yeni cihaz`].filter(Boolean);
+    const parts = [r.created && `${r.created} proje eklendi`, r.updated && `${r.updated} proje güncellendi`, year && `${year} yılına`, r.devicesAdded && `${r.devicesAdded} yeni cihaz`].filter(Boolean);
     toast(`${file.name}: ${parts.join(' · ')}`, { timeout: 9000, action: { label: 'Geri al', run: () => A.run({ type: 'invoice/import-undo', ...before }) } });
   }
 
@@ -561,6 +612,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
   el.querySelector('.inv-tools').addEventListener('click', (e) => {
     if (e.target.closest('[data-i="xlsx"]')) pickFile();
     else if (e.target.closest('[data-i="pick-none"]')) clearPicks();
+    else if (e.target.closest('[data-i="move-year"]')) moveToYear(e.target.closest('[data-i="move-year"]'));
     else if (e.target.closest('[data-i="only-issues"]')) {
       onlyIssues = !onlyIssues;
       body.scrollTop = 0;
@@ -586,6 +638,39 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     e.preventDefault();
     clearPicks();
   });
+
+  el.querySelector('#inv-year').addEventListener('change', (e) => {
+    yearFilter = Number(e.target.value) || null;
+    try {
+      if (yearFilter) localStorage.setItem(YEAR_KEY, String(yearFilter));
+      else localStorage.removeItem(YEAR_KEY);
+    } catch {}
+    body.scrollTop = 0;
+    render(null, { force: true });
+  });
+
+  // The ticked cards under one year at once (or back to their test year).
+  function moveToYear(button) {
+    const picked = pickedInvoices();
+    const run = async (year) => {
+      const before = picked.map((i) => [i.id, i.year]);
+      if (!(await A.run({ type: 'invoice/set-year', ids: picked.map((i) => i.id), year }))) return;
+      toast(`${picked.length} proje ${year ? `${year} yılına` : 'test yılına'} taşındı`, {
+        timeout: 9000,
+        action: {
+          label: 'Geri al',
+          run: async () => {
+            for (const [id, y] of before) await A.run({ type: 'invoice/set-year', ids: [id], year: y });
+          },
+        },
+      });
+    };
+    menuAt(button, [
+      ...yearChoices().map((y) => ({ label: String(y), icon: 'calendar', action: () => run(y) })),
+      'sep',
+      { label: 'Otomatik (test yılı)', icon: 'restore', action: () => run(null) },
+    ]);
+  }
 
   el.querySelector('#inv-order').addEventListener('change', (e) => {
     order = e.target.value;

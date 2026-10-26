@@ -950,6 +950,7 @@ body.os-win32 .inv-head {
   font-size: 11.5px;
 }
 .inv-xlsx,
+.inv-move-year,
 .inv-clear {
   flex: none;
   white-space: nowrap;
@@ -1221,6 +1222,18 @@ button.hbar {
 }
 .col.dim .col-bar {
   background: var(--viz-dim);
+}
+/* Devir: the year's projects with no month in it; hatched, not pickable. */
+.col.carry {
+  cursor: default;
+}
+.col.carry .col-bar {
+  background: repeating-linear-gradient(135deg, var(--viz-bar) 0 3px, transparent 3px 6px);
+  box-shadow: inset 0 0 0 1px var(--viz-bar);
+}
+.dash-table tr.carry td {
+  color: var(--text-2);
+  font-style: italic;
 }
 .col-value {
   position: absolute;
@@ -1602,6 +1615,7 @@ body.file-over .file-drop {
   color: var(--text);
   font-weight: 600;
 }
+.inv-year-field,
 .inv-customer {
   display: flex;
   align-items: center;
@@ -1612,6 +1626,13 @@ body.file-over .file-drop {
   font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.inv-card .inv-year-field select {
+  width: auto;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .inv-card .inv-customer input {
   width: 170px;

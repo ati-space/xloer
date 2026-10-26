@@ -112,13 +112,14 @@ export function createInvoiceDash(el) {
     const cols = buckets
       .map((b, i) => {
         const key = b.month ?? b.year;
-        const on = picked === key;
+        const on = !b.carry && picked === key;
         const dim = picked != null && !on;
         const h = (b.amount / top) * 100;
         const showValue = b.amount > 0 && (on || (picked == null && b === peak));
-        return `<button type="button" class="col${on ? ' on' : ''}${dim ? ' dim' : ''}" data-pick="${key}" data-tip="${i}" aria-pressed="${on}" aria-label="${esc(`${b.label}: ${formatEuro(b.amount)}, ${b.projects} proje`)}">
+        // "Devir" belongs to the year but to no month, so it cannot be picked.
+        return `<button type="button" class="col${on ? ' on' : ''}${dim ? ' dim' : ''}${b.carry ? ' carry' : ''}"${b.carry ? '' : ` data-pick="${key}"`} data-tip="${i}" aria-pressed="${on}" aria-label="${esc(`${b.label}: ${formatEuro(b.amount)}, ${b.projects} proje`)}">
           <span class="col-bar" style="height:${h}%">${showValue ? `<span class="col-value">€ ${compact.format(b.amount)}</span>` : ''}</span>
-          <span class="col-label">${esc(b.month ? shortMonth(b.month) : b.label)}</span>
+          <span class="col-label">${esc(b.carry ? 'Devir' : b.month ? shortMonth(b.month) : b.label)}</span>
         </button>`;
       })
       .join('');
@@ -129,6 +130,7 @@ export function createInvoiceDash(el) {
     const rows = buckets
       .map((b) => {
         const key = b.month ?? b.year;
+        if (b.carry) return `<tr class="carry" title="Testi başka yılda yapılıp ya da tarihsiz olup bu yıla yazılan projeler"><td>${esc(b.label)}</td><td class="num">${b.projects}</td><td class="num">–</td><td class="num">–</td><td class="num">${esc(formatEuro(b.amount))}</td></tr>`;
         return `<tr data-pick="${key}" class="${picked === key ? 'on' : ''}${b.amount || b.days ? '' : ' quiet'}" tabindex="0">
           <td>${esc(b.label)}</td><td class="num">${b.projects || '–'}</td><td class="num">${b.days || '–'}</td><td class="num">${b.shifts || '–'}</td><td class="num">${b.amount ? esc(formatEuro(b.amount)) : '–'}</td>
         </tr>`;
@@ -193,7 +195,9 @@ export function createInvoiceDash(el) {
     const undated = undatedInvoices(invoices);
     tips = {};
     buckets.forEach((b, i) => {
-      tips[i] = { value: formatEuro(b.amount), lines: [b.month ? `${b.label} ${year}` : b.label, `${b.projects} proje · ${b.days} test günü · ${b.shifts} vardiya`] };
+      tips[i] = b.carry
+        ? { value: formatEuro(b.amount), lines: [`Devir · ${year}`, `${b.projects} proje: testi başka yılda ya da tarihsiz, bu yıla yazılmış`] }
+        : { value: formatEuro(b.amount), lines: [b.month ? `${b.label} ${year}` : b.label, `${b.projects} proje · ${b.days} test günü · ${b.shifts} vardiya`] };
     });
     customers.forEach((c, i) => {
       tips[`c${i}`] = { value: formatEuro(c.amount), lines: [c.name, `${c.projects} proje · ${c.days} test günü · ${c.shifts} vardiya`] };
@@ -218,7 +222,7 @@ export function createInvoiceDash(el) {
       <div class="dash-grid">
         <section class="dash-card">
           <h3>${esc(chartTitle)}</h3>
-          <p class="dash-sub">Tutar, projenin son test tarihinin ${mode === 'month' ? 'ayına' : 'yılına'} yazılır. Bir ${mode === 'month' ? 'aya' : 'yıla'} tıkla: üstteki sayılar ve cihazlar ona göre süzülür.</p>
+          <p class="dash-sub">Tutar, projenin yılına (kartta seçilen, yoksa son testin yılı)${mode === 'month' ? ' ve son testin ayına; testi başka yılda olanlar “Devir”de' : ''} yazılır. Bir ${mode === 'month' ? 'aya' : 'yıla'} tıkla: üstteki sayılar ve cihazlar ona göre süzülür.</p>
           ${columnsHtml(buckets)}
           ${tableHtml(buckets, total)}
         </section>
@@ -235,7 +239,7 @@ export function createInvoiceDash(el) {
           </section>
         </div>
       </div>
-      ${undated.projects ? `<p class="dash-note">Tarihsiz ${undated.projects} proje (${esc(formatEuro(undated.amount))}) hiçbir ${mode === 'month' ? 'aya' : 'yıla'} yazılmadı; test tarihi girildiğinde panoya eklenir.</p>` : ''}`;
+      ${undated.projects ? `<p class="dash-note">Test tarihi ve yılı olmayan ${undated.projects} proje (${esc(formatEuro(undated.amount))}) hiçbir yıla yazılmadı; kartta yıl seçilince ya da tarih girilince panoya eklenir.</p>` : ''}`;
   }
 
   function pick(key) {
