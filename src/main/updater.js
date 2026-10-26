@@ -65,6 +65,8 @@ export function createUpdater({ broadcast, beforeInstall }) {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = !portable;
     autoUpdater.disableWebInstaller = true;
+    // Releases carry no .blockmap: an update downloads the whole installer.
+    autoUpdater.disableDifferentialDownload = true;
     autoUpdater.logger = { info() {}, debug() {}, warn: (m) => console.warn('[update]', m), error: (m) => console.error('[update]', m) };
     autoUpdater.on('checking-for-update', () => set({ status: 'checking', error: null }));
     autoUpdater.on('update-available', (info) => set({ status: 'available', version: info.version, notes: plainNotes(info.releaseNotes), checkedAt: Date.now() }));

@@ -42,15 +42,21 @@ body.os-darwin .titlebar {
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
-/* The detail panel is closed until a task is picked, then slides open to
-   --detail-w (set by dragging the line between list and panel). */
+/* Columns: rail, sidebar, list, task panel. The sidebar's width
+   (--side-user) and the panel's (--detail-w) are set by dragging the lines
+   at their edges. The panel is closed until a task is picked. Then the
+   window grows by it ("outward", see main-view.js): the list keeps its width
+   as --list-w and the panel takes the rest, so dragging the window's right
+   edge sizes the panel, up to --panel-max; past that the list grows. A
+   maximised window instead slides the panel open inside, to --detail-w. */
 .layout {
-  --side-w: 240px;
+  --rail-w: 64px;
+  --side-w: var(--side-user, 240px);
   --detail-w: 420px;
   --detail-col: 0px;
   position: relative;
   display: grid;
-  grid-template-columns: 64px var(--side-w) minmax(0, 1fr) var(--detail-col);
+  grid-template-columns: var(--rail-w) var(--side-w) minmax(0, 1fr) var(--detail-col);
   grid-template-rows: minmax(0, 1fr);
   height: calc(100vh - var(--titlebar-h));
   transition: grid-template-columns 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -58,38 +64,73 @@ body.os-darwin .titlebar {
 .layout.has-selection {
   --detail-col: var(--detail-w);
 }
+@media (min-width: 981px) {
+  .layout.outward {
+    --panel-min: 320px;
+    --panel-max: 960px;
+    grid-template-columns:
+      var(--rail-w) var(--side-w) minmax(0, max(var(--list-w), 100% - var(--rail-w) - var(--side-w) - var(--panel-max)))
+      minmax(var(--panel-min), 1fr);
+  }
+  /* While the window grows or shrinks the panel goes down to nothing and
+     its content keeps its width; afterwards the content follows the panel. */
+  .layout.outward.growing {
+    --panel-min: 0px;
+  }
+  .layout.outward:not(.growing) .pane-detail > * {
+    min-width: 0;
+  }
+}
 .layout.resizing {
   transition: none;
   cursor: col-resize;
   user-select: none;
 }
-.layout.resizing .detail-resizer,
-.layout.resizing .detail-resizer::after {
-  transition: none;
+.rail {
+  grid-area: 1 / 1;
+}
+.sidebar {
+  grid-area: 1 / 2;
+}
+.pane-list {
+  grid-area: 1 / 3;
 }
 .pane-detail {
+  grid-area: 1 / 4;
   overflow: hidden;
 }
 /* Keeps the panel's content at full width while the column opens. */
 .pane-detail > * {
   min-width: calc(var(--detail-w) - 1px);
 }
+/* The lines that size the sidebar and the panel: on the left edge of the
+   list and of the panel. */
+.side-resizer,
 .detail-resizer {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: calc(var(--detail-col) - 4px);
+  position: relative;
+  grid-row: 1;
+  justify-self: start;
   z-index: 6;
   width: 8px;
+  margin-left: -4px;
   cursor: col-resize;
+}
+.side-resizer {
+  grid-column: 3;
+}
+.detail-resizer {
+  grid-column: 4;
   opacity: 0;
   pointer-events: none;
-  transition: right 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .layout.has-selection:not(.mode-invoices) .detail-resizer {
   opacity: 1;
   pointer-events: auto;
 }
+.layout.no-sidebar .side-resizer {
+  display: none;
+}
+.side-resizer::after,
 .detail-resizer::after {
   content: '';
   position: absolute;
@@ -100,13 +141,18 @@ body.os-darwin .titlebar {
   background: transparent;
   transition: background 0.15s;
 }
+.side-resizer:hover::after,
 .detail-resizer:hover::after,
-.layout.resizing .detail-resizer::after {
+.side-resizer.active::after,
+.detail-resizer.active::after {
   background: var(--accent);
 }
+.layout.resizing .side-resizer::after,
+.layout.resizing .detail-resizer::after {
+  transition: none;
+}
 @media (prefers-reduced-motion: reduce) {
-  .layout,
-  .detail-resizer {
+  .layout {
     transition: none;
   }
 }
@@ -370,11 +416,24 @@ body.os-darwin .titlebar {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.nav-dot {
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: 50%;
+/* A coloured tag: its whole box takes the colour. */
+.nav-item.filled {
+  background: var(--tag);
+  color: var(--tag-ink);
+}
+.nav-item.filled + .nav-item.filled {
+  margin-top: 2px;
+}
+.nav-item.filled:hover {
+  background: color-mix(in srgb, var(--tag) 88%, var(--tag-ink));
+}
+.nav-item.filled.active {
+  box-shadow: inset 3px 0 0 var(--tag-ink);
+}
+.nav-item.filled .nav-icon,
+.nav-item.filled .nav-count {
+  color: inherit;
+  opacity: 0.75;
 }
 .nav-count {
   min-width: 18px;
@@ -871,11 +930,13 @@ body.os-darwin .titlebar {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: var(--text-3);
+  color: var(--tag-ink, var(--text-3));
+  opacity: 0.75;
 }
 .tag-chip.big button:hover {
-  background: var(--hover);
-  color: var(--text);
+  background: color-mix(in srgb, var(--tag-ink, var(--text)) 16%, transparent);
+  color: var(--tag-ink, var(--text));
+  opacity: 1;
 }
 .tag-input {
   width: 120px;
@@ -949,8 +1010,9 @@ body.os-darwin .titlebar {
 /* Narrow windows: the detail pane slides over the list. */
 @media (max-width: 980px) {
   .layout {
-    --side-w: 210px;
-    grid-template-columns: 52px var(--side-w) minmax(0, 1fr);
+    --rail-w: 52px;
+    --side-w: min(var(--side-user, 210px), 210px);
+    grid-template-columns: var(--rail-w) var(--side-w) minmax(0, 1fr);
   }
   .pane-detail {
     position: fixed;
@@ -970,6 +1032,7 @@ body.os-darwin .titlebar {
   .pane-detail > * {
     min-width: 0;
   }
+  .side-resizer,
   .detail-resizer {
     display: none;
   }
@@ -979,7 +1042,7 @@ body.os-darwin .titlebar {
 
 .inv-pane {
   display: none;
-  grid-column: 3 / -1;
+  grid-area: 1 / 3 / auto / -1;
   flex-direction: column;
   min-width: 0;
   background: var(--bg-list);

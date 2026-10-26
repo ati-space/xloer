@@ -11,6 +11,26 @@ export function esc(s) {
 export const PRIORITY_LABELS = ['Öncelik yok', 'Düşük öncelik', 'Orta öncelik', 'Yüksek öncelik'];
 export const PRIORITY_COLORS = ['var(--text-3)', 'var(--p1)', 'var(--p2)', 'var(--p3)'];
 
+// A coloured tag fills its whole box; its text is dark or white, whichever
+// reads better on that colour. Returns a style attribute, or '' for a tag
+// without a colour (it keeps the plain outlined box).
+const INK = ['#141516', '#ffffff'];
+function luminance(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+export function inkOn(hex) {
+  const l = luminance(hex);
+  const contrast = (ink) => (Math.max(l, luminance(ink)) + 0.05) / (Math.min(l, luminance(ink)) + 0.05);
+  return contrast(INK[0]) >= contrast(INK[1]) ? INK[0] : INK[1];
+}
+export function tagFill(color) {
+  return /^#[0-9a-f]{6}$/i.test(color ?? '') ? ` style="--tag:${color};--tag-ink:${inkOn(color)}"` : '';
+}
+
 // ---------------------------------------------------------------- theme
 
 let themeSetting = 'dark';
@@ -62,7 +82,8 @@ export function closeMenus(fromLevel = 0) {
   while (openMenus.length > fromLevel) openMenus.pop().remove();
 }
 
-// items: {label, icon?, emoji?, color?, hint?, checked?, danger?, disabled?, action?, items?} | 'sep'
+// items: {label, icon?, emoji?, color?, fill?, hint?, checked?, danger?, disabled?, action?, items?} | 'sep'
+// fill: the label sits in a box of that colour (tag colours); null for an outlined one.
 export function showMenu(x, y, items, level = 0) {
   closeMenus(level);
   const menu = document.createElement('div');
@@ -76,11 +97,12 @@ export function showMenu(x, y, items, level = 0) {
     }
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = `menu-item${it.danger ? ' danger' : ''}`;
+    b.className = `menu-item${it.danger ? ' danger' : ''}${'fill' in it ? ' swatch' : ''}`;
     b.disabled = !!it.disabled;
     b.setAttribute('role', 'menuitem');
     const lead = it.icon ? icon(it.icon) : it.emoji ? `<span class="mi-emoji">${esc(it.emoji)}</span>` : '';
-    b.innerHTML = `<span class="mi-icon">${lead}</span><span class="mi-label">${esc(it.label)}</span>${it.hint ? `<span class="mi-hint">${esc(it.hint)}</span>` : ''}${it.checked ? `<span class="mi-check">${icon('checkmark', 14)}</span>` : ''}${it.items ? `<span class="mi-sub">${icon('chevronRight', 14)}</span>` : ''}`;
+    const label = 'fill' in it ? `<span class="mi-label mi-fill"${tagFill(it.fill)}>${esc(it.label)}</span>` : `<span class="mi-label">${esc(it.label)}</span>`;
+    b.innerHTML = `${'fill' in it ? '' : `<span class="mi-icon">${lead}</span>`}${label}${it.hint ? `<span class="mi-hint">${esc(it.hint)}</span>` : ''}${it.checked ? `<span class="mi-check">${icon('checkmark', 14)}</span>` : ''}${it.items ? `<span class="mi-sub">${icon('chevronRight', 14)}</span>` : ''}`;
     if (it.color) b.style.setProperty('--mi-color', it.color);
     if (it.items) {
       const open = () => {

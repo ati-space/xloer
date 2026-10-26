@@ -11,7 +11,7 @@ Son sürüm: **https://github.com/ati-space/xloer/releases/latest**
 | Dosya | Ne işe yarar |
 | --- | --- |
 | `Xloer-Setup-x.y.z.exe` | Kurulum sihirbazı. Başlat menüsü ve masaüstü kısayolu oluşturur, kendini günceller. |
-| `Xloer-Portable-x.y.z.exe` | Kurulumsuz çalışan tek dosya. Yeni sürüm çıkınca haber verir, indirme sayfasını açar. |
+| `Xloer-Portable-x.y.z.exe` | Kurulumsuz çalışan tek dosya. Her sürümün ilk açılışında kendini bir kez `%LOCALAPPDATA%\Xloer\portable` altına açar, sonraki açılışlar oradan hızlı başlar. Yeni sürüm çıkınca haber verir, indirme sayfasını açar. |
 
 Uygulama imzasız olduğu için Windows ilk açılışta **“Windows bilgisayarınızı korudu”**
 uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
@@ -132,8 +132,15 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
 - **Aşamalar:** kenar çubuğunda “Aşama”nın yanındaki kalem: yeni aşama ekle, adını
   değiştir, ↑/↓ ile sırala, sil. Raporlar aşamalarında kalır; silinen aşamanın
   raporları “Geri al” ile geri gelir.
-- **Ayrıntı paneli:** bir göreve tıklayınca açılır, × ya da Esc ile kapanır; liste
-  ile panel arasındaki çizgi sürüklenerek genişlik ayarlanır (çift tık: varsayılan).
+- **Ayrıntı paneli:** bir göreve tıklayınca açılır, × ya da Esc ile kapanır. Dışa
+  doğru açılır: pencere sağa genişler, liste yerinde kalır; kapanınca pencere eski
+  boyutuna döner (ekranı kaplayan pencerede panel içeride açılır). Panel açıkken
+  pencerenin sağ kenarı paneli büyütür; liste ile panel arasındaki çizgi ikisinin
+  payını değiştirir (çift tık: varsayılan).
+- **Kenar çubuğu:** liste ile arasındaki çizgi sürüklenerek genişletilir (çift tık:
+  varsayılan). Genişlikler bir sonraki açılışta da aynıdır.
+- **Etiket renkleri:** kenar çubuğunda etikete sağ tık → Renk. Seçilen renk
+  etiketin kutusunu doldurur; “Renksiz” düz çerçeveye döndürür.
 - Pencere yalnız en üstteki ince başlık çubuğundan taşınır.
 - **Temalar** (Ayarlar → Görünüm): Laboratuvar, Gece, Orman, Bakır, Mürdüm ve Kontrast;
   her biri koyu, açık ya da sistemle birlikte çalışır.
@@ -163,14 +170,16 @@ ayarlar korunur.
    unutulmadığını denetler.
 3. Commit’leyip `main`’e gönder. `.github/workflows/release.yml` sürüm numarasının
    henüz yayınlanmadığını görünce Windows’ta testleri çalıştırır, kurulumları
-   derler ve bu depoda sürüm olarak yayınlar (10 dakika kadar sürer, ilerlemesi
-   **Actions** sekmesinde görünür). Ek bir token gerekmez.
+   derler, kurulumu ve portable sürümü açıp denetler (`scripts/verify-win.js`;
+   sonuç tablosu iş özetinde) ve bu depoda sürüm olarak yayınlar (15 dakika kadar
+   sürer, ilerlemesi **Actions** sekmesinde görünür). Denetim başarısızsa
+   yayınlanmaz. Ek bir token gerekmez.
 
 Sürüm numarası değişmeyen gönderimler bir şey yayınlamaz; aynı sürüm iki kez
 yayınlanamaz. Actions → Release → **Run workflow** ile elle de başlatılabilir;
-“Sadece derle” seçilirse yayınlamadan deneme yapar. Yerelde `npm run release`
-de aynısını yapar (GitHub CLI’de bu depoya yazma izniyle oturum açmış olmak
-gerekir).
+“Sadece derle” seçilirse derleyip denetler ama yayınlamaz. Yerelde
+`npm run release` de derleyip yayınlar (GitHub CLI’de bu depoya yazma izniyle
+oturum açmış olmak gerekir); Windows denetimi yalnız CI’da çalışır.
 
 ## Başka bir uygulamadan taşıma (CSV)
 
@@ -198,7 +207,7 @@ npm install
 npm start          # uygulamayı çalıştır (F12: geliştirici araçları)
 npm test           # veri modeli, sürükle-bırak hesapları, arama, CSV testleri
 npm run icon       # build/logo.png’den uygulama simgelerini yeniden üret
-npm run dist:win   # dist/ altına Windows kurulum + taşınabilir exe (yayınlamadan)
+npm run dist:win   # dist/ altına Windows kurulum + portable exe (yayınlamadan)
 npm run dist:zip   # dist/ altına Windows ZIP paketi
 npm run release    # derle ve bu depoda yeni sürüm olarak yayınla
 ```
@@ -212,7 +221,14 @@ Dosyalar:
   satır listeleri (`tree-rows.js`), arama (`search.js`), CSV içe aktarma (`tasks-csv.js`).
   Electron’a bağımlı değildir; testler bunları doğrudan çalıştırır.
 - `src/main/` — Electron ana süreci: pencereler, widget, tepsi, kayıt,
-  güncellemeler (`updater.js`).
+  güncellemeler (`updater.js`). `XLOER_SELF_TEST=sonuc.json` ile başlatılan
+  uygulama kendini denetleyip sonucu o dosyaya yazar ve kapanır (`self-test.js`;
+  boş bir veri klasörüyle, gerçek verilere dokunmaz).
+- `build/portable.nsi` — portable exe: uygulamayı sürüm başına bir kez
+  `%LOCALAPPDATA%\Xloer\portable` altına açıp oradan başlatır. `scripts/release.js`
+  electron-builder’ın NSIS derleyicisiyle derler.
+- `scripts/verify-win.js` — CI’da yayından önce kurulumu ve portable exe’yi açıp
+  denetler.
 - `build/logo.png` — logonun kaynağı (beyaz, saydam zemin). `npm run icon` bundan
   `build/icon.png` ve `src/renderer/img/logo.png` üretir.
 - `src/renderer/` — arayüz. `index.html` ana pencere, `widget.html` widget.

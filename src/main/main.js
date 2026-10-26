@@ -5,6 +5,7 @@
 
 import { app, BrowserWindow, ClipboardItem, Menu, Tray, clipboard, dialog, ipcMain, nativeImage, nativeTheme, screen, shell } from 'electron';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dispatch, normalizeState, todayStr } from '../shared/store.js';
@@ -19,6 +20,8 @@ const PRELOAD = path.join(here, 'preload.cjs');
 const ICON = path.join(here, '..', '..', 'build', 'icon.png');
 const isWin = process.platform === 'win32';
 const autostarted = process.argv.includes('--autostart');
+// See self-test.js.
+const selfTest = process.env.XLOER_SELF_TEST;
 
 
 let state;
@@ -33,6 +36,7 @@ let quitting = false;
 let pendingNav = null;
 
 if (process.env.XLOER_DATA_DIR) app.setPath('userData', process.env.XLOER_DATA_DIR);
+else if (selfTest) app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'xloer-self-test-')));
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -66,6 +70,11 @@ function start() {
   };
   mainWin.once('ready-to-show', () => setTimeout(rest, 150));
   setTimeout(rest, 2500);
+  if (selfTest) {
+    import('./self-test.js').then(({ runSelfTest }) =>
+      runSelfTest(selfTest, { main: () => mainWin, widget: () => widgetWin, updater: () => updater, state: () => state, apply, storage, loginItemPath }),
+    );
+  }
 }
 
 async function startRest() {
@@ -140,11 +149,12 @@ function applySettings(prev) {
   updateTrayMenu();
 }
 
+// The portable build runs from its unpacked copy; Windows starts the .exe itself.
+const loginItemPath = () => process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+
 function updateLoginItem() {
-  if (!isWin || !app.isPackaged) return;
-  // The portable build runs from a temp folder; register the real .exe.
-  const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
-  app.setLoginItemSettings({ openAtLogin: state.settings.startWithWindows, path: exe, args: ['--autostart'] });
+  if (!isWin || !app.isPackaged || selfTest) return;
+  app.setLoginItemSettings({ openAtLogin: state.settings.startWithWindows, path: loginItemPath(), args: ['--autostart'] });
 }
 
 // The window colours of the chosen theme, light or dark (see shared/themes.js).
@@ -214,8 +224,12 @@ function createMainWindow() {
   }
   harden(mainWin);
   mainWin.loadFile(path.join(RENDERER, 'index.html'));
+  for (const name of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) {
+    mainWin.on(name, () => mainWin.webContents.send('win:state', winState()));
+  }
   mainWin.on('close', (e) => {
-    storage.saveWindowState('main', { ...mainWin.getNormalBounds(), maximized: mainWin.isMaximized() });
+    stopResize();
+    storage.saveWindowState('main', { ...baseBounds(), maximized: mainWin.isMaximized() });
     if (quitting) return;
     if (state.settings.closeToTray) {
       e.preventDefault();
@@ -228,7 +242,84 @@ function createMainWindow() {
   });
   mainWin.on('closed', () => {
     mainWin = null;
+    grown = { width: 0, shift: 0, x: null };
   });
+}
+
+// ---------------------------------------------------------------- detail panel room
+
+// The task panel opens outward (see main-view.js): the window grows to the
+// right by the panel's width, moving left only as far as the screen edge
+// needs, and gives that room back when the panel closes. A maximised or
+// full-screen window keeps its size. grown is the room taken so far; the
+// saved window size leaves it out.
+let grown = { width: 0, shift: 0, x: null };
+let resizing = null;
+
+const winState = () => ({ maximized: mainWin.isMaximized(), fullScreen: mainWin.isFullScreen() });
+const canResize = () => mainWin && !mainWin.isMaximized() && !mainWin.isFullScreen();
+
+function baseBounds() {
+  const b = mainWin.getNormalBounds();
+  const [minWidth] = mainWin.getMinimumSize();
+  return { ...b, x: b.x === grown.x ? b.x + grown.shift : b.x, width: Math.max(minWidth, b.width - grown.width) };
+}
+
+function stopResize() {
+  if (!resizing) return;
+  clearInterval(resizing.timer);
+  if (mainWin && !mainWin.isDestroyed()) mainWin.setBounds(resizing.to);
+  resizing = null;
+}
+
+// Moves the window's edges to `to` over 200 ms, easing out.
+function resizeTo(to) {
+  stopResize();
+  const from = mainWin.getBounds();
+  const start = Date.now();
+  const timer = setInterval(() => {
+    if (!mainWin || mainWin.isDestroyed()) return clearInterval(timer);
+    const k = Math.min(1, (Date.now() - start) / 200);
+    const e = 1 - (1 - k) ** 3;
+    const at = (a, b) => Math.round(a + (b - a) * e);
+    mainWin.setBounds({ x: at(from.x, to.x), y: to.y, width: at(from.width, to.width), height: to.height });
+    if (k === 1) {
+      clearInterval(timer);
+      resizing = null;
+    }
+  }, 16);
+  resizing = { timer, to };
+}
+
+// Returns how much wider the window gets (0 when it cannot grow).
+function growWindow(by) {
+  if (!canResize() || !(by > 0)) return 0;
+  stopResize();
+  const b = mainWin.getBounds();
+  const area = screen.getDisplayMatching(b).workArea;
+  const width = Math.min(b.width + by, Math.max(b.width, area.width));
+  const x = Math.max(area.x, Math.min(b.x, area.x + area.width - width));
+  const added = width - b.width;
+  if (added <= 0) return 0;
+  grown = { width: grown.width + added, shift: grown.shift + b.x - x, x };
+  resizeTo({ ...b, x, width });
+  return added;
+}
+
+// Returns how much narrower the window gets; never below what it had
+// before the panel took room, nor below its minimum width.
+function shrinkWindow(by) {
+  if (!canResize() || !(by > 0)) return 0;
+  stopResize();
+  const b = mainWin.getBounds();
+  const [minWidth] = mainWin.getMinimumSize();
+  const width = Math.max(minWidth, b.width - Math.min(by, grown.width));
+  const removed = b.width - width;
+  // Moved left to make room: back to where it was, unless moved since.
+  const back = b.x === grown.x ? grown.shift : 0;
+  grown = { width: grown.width - removed, shift: 0, x: null };
+  if (removed > 0 || back) resizeTo({ ...b, x: b.x + back, width });
+  return removed;
 }
 
 function showMain() {
@@ -378,6 +469,11 @@ function registerIpc() {
   ipcMain.handle('update:install', () => updater?.install());
   ipcMain.handle('update:open-page', () => updater?.openPage());
   ipcMain.handle('update:open-panel', () => navigate({ type: 'update' }));
+
+  const fromMain = (e) => mainWin && e.sender === mainWin.webContents;
+  ipcMain.handle('win:state', (e) => (fromMain(e) ? winState() : null));
+  ipcMain.handle('win:grow', (e, by) => (fromMain(e) ? growWindow(Number(by)) : 0));
+  ipcMain.handle('win:shrink', (e, by) => (fromMain(e) ? shrinkWindow(Number(by)) : 0));
 
   ipcMain.handle('app:info', () => ({
     version: app.getVersion(),

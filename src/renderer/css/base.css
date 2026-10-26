@@ -538,10 +538,12 @@ mark {
   align-items: center;
   gap: 3px;
 }
+/* A tag with a colour fills its box with it (--tag, --tag-ink: ui.js tagFill). */
 .tag-chip {
   padding: 1px 6px;
-  border: 1px solid var(--border);
-  color: var(--text-2);
+  border: 1px solid var(--tag, var(--border));
+  background: var(--tag, transparent);
+  color: var(--tag-ink, var(--text-2));
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.04em;
@@ -925,6 +927,22 @@ body.is-dragging * {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.menu-item.swatch {
+  padding: 3px 5px;
+}
+.mi-fill {
+  padding: 4px 8px;
+  border: 1px solid var(--tag, var(--border));
+  border-radius: 2px;
+  background: var(--tag, transparent);
+  color: var(--tag-ink, var(--text-2));
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.menu-item.swatch .mi-check {
+  margin-left: 2px;
 }
 .mi-hint {
   color: var(--text-3);

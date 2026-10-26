@@ -92,12 +92,12 @@ function render() {
     els.count.classList.remove('busy');
     els.count.classList.toggle('none', !r.matches);
     els.count.textContent = r.matches ? `${r.matches} sonuç` : 'Sonuç yok';
-    tree.setRows(rows, { search: true, terms: r.terms, selectedId, stages: state.stages });
+    tree.setRows(rows, { search: true, terms: r.terms, selectedId, stages: state.stages, tags: state.tags });
     els.empty.textContent = w.scope === 'all' ? 'Hiçbir listede sonuç yok.' : 'Bu listede sonuç yok. “Tüm listeler”i dene.';
   } else {
     rows = buildListRows(state, list.id, { index });
     els.count.textContent = '';
-    tree.setRows(rows, { dnd: 'tree', selectedId, reports: true, stages: state.stages });
+    tree.setRows(rows, { dnd: 'tree', selectedId, reports: true, stages: state.stages, tags: state.tags });
     els.empty.textContent = 'Bu listede görev yok.';
   }
   els.empty.hidden = rows.length > 0;

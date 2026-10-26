@@ -2,7 +2,7 @@
 // right-clicks and drops into callbacks. Used by the main window and the widget.
 
 import { icon } from './icons.js';
-import { esc, dueLabel } from './ui.js';
+import { esc, dueLabel, tagFill } from './ui.js';
 import { highlightRanges } from '../../shared/search.js';
 import { attachDnd } from './dnd.js';
 
@@ -53,6 +53,8 @@ export class TaskTree {
     ({ rows: this.rows, view: this.view } = this.pending);
     this.pending = null;
     if ('selectedId' in this.view) this.selectedId = this.view.selectedId;
+    // view.tags: the tags with their colours, for the coloured chips.
+    this.tagColors = new Map((this.view.tags ?? []).map((g) => [g.name.toLocaleLowerCase('tr'), g.color]));
     this.el.classList.toggle('has-sections', this.rows.some((r) => r.kind === 'section'));
     this.el.classList.toggle('searching', !!this.view.search);
     this.el.innerHTML = this.rows.map((r, i) => this.rowHtml(r, i)).join('');
@@ -89,7 +91,7 @@ export class TaskTree {
     if (r.id === this.selectedId) cls.push('selected');
     const meta = [];
     if (r.path) meta.push(`<span class="path" title="${esc(r.path)}">${esc(r.path)}</span>`);
-    for (const g of t.tags) meta.push(`<span class="tag-chip">#${esc(g)}</span>`);
+    for (const g of t.tags) meta.push(`<span class="tag-chip"${tagFill(this.tagColors.get(g.toLocaleLowerCase('tr')))}>#${esc(g)}</span>`);
     const due = dueLabel(t.due, t.done);
     if (due) meta.push(`<span class="due ${due.tone}">${esc(due.text)}</span>`);
     if (r.progress.total) meta.push(`<span class="progress" title="Alt görevler">${icon('subtasks', 13)}${r.progress.done}/${r.progress.total}</span>`);

@@ -22,6 +22,13 @@ contextBridge.exposeInMainWorld('xloer', {
   openDataDir: () => ipcRenderer.invoke('data:open-dir'),
   appInfo: () => ipcRenderer.invoke('app:info'),
   copyRich: (content) => ipcRenderer.invoke('clipboard:write', content),
+  // Room for the task panel: the main window grows and shrinks by it.
+  win: {
+    state: () => ipcRenderer.invoke('win:state'),
+    grow: (by) => ipcRenderer.invoke('win:grow', by),
+    shrink: (by) => ipcRenderer.invoke('win:shrink', by),
+    onState: (cb) => listen('win:state', cb),
+  },
   update: {
     get: () => ipcRenderer.invoke('update:get'),
     check: () => ipcRenderer.invoke('update:check'),

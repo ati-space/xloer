@@ -8,6 +8,20 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.16.0',
+    date: '2026-10-26',
+    title: 'Hızlı portable, dışa açılan panel, etiket renkleri',
+    items: [
+      ['fix', 'Portable sürüm çok daha hızlı açılır: her açılışta tüm uygulamayı geçici klasöre yeniden çıkarmak yerine her sürümü bir kez açar (%LOCALAPPDATA%\\Xloer\\portable), sonraki açılışlar doğrudan oradan başlar; eski sürümlerin klasörü kendiliğinden silinir'],
+      ['better', 'Her sürüm yayınlanmadan önce Windows’ta kurulum ve portable sürüm gerçekten açılıp denetlenir: pencere, sayfa, kayıt, widget, dosya yolları, güncelleme denetimi'],
+      ['better', 'Ayrıntı paneli dışa doğru açılır: pencere sağa genişler, liste yerinde ve aynı genişlikte kalır, kapanınca pencere eski boyutuna döner. Ekranın sağında yer yoksa pencere sola kayar; ekranı kaplayan pencerede panel içeride açılır. Panel açıkken pencerenin sağ kenarını çekmek paneli büyütür'],
+      ['new', 'Kenar çubuğu genişletilip daraltılabilir: liste ile arasındaki çizgiyi sürükle (çift tık: varsayılan); genişlik hatırlanır'],
+      ['better', 'Etiket rengi etiketin kutusunun tamamını doldurur (kenar çubuğu, satırlar, ayrıntı paneli, widget); renk menüsünde seçenekler renkli kutular, “Renksiz” de eklendi'],
+      ['better', 'Liste başlığına çift tıklamak artık düzenleme penceresini açmaz; ad ve simge kenar çubuğundaki sağ tık menüsünden değişir'],
+      ['better', 'Sürümlerde .blockmap dosyası yok; güncelleme kurulum dosyasını bütün olarak indirir'],
+    ],
+  },
+  {
     version: '1.15.0',
     date: '2026-10-26',
     title: 'Başlık çubuğu, aşamalar, ayrıntı paneli',

@@ -3,7 +3,9 @@
 # copies of Xloer find the new version in that release.
 #
 # It publishes with the workflow's own token, so no secret is needed.
-# "Run workflow" with "build only" builds without publishing, as a test.
+# Before publishing, scripts/verify-win.js installs and starts the built
+# installer and starts the portable exe twice; a failure stops the release.
+# "Run workflow" with "build only" builds and checks without publishing.
 
 name: Release
 
@@ -67,8 +69,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: npm run release
-      - name: Build only (not published)
+      - name: Build and check only (not published)
         if: ${{ inputs.build_only }}
-        run: |
-          node node_modules/electron-builder/cli.js --win nsis portable --x64 --publish never
-          Get-ChildItem dist -File | Format-Table Name, Length
+        run: npm run release -- --build-only

@@ -10,8 +10,8 @@ import { PALETTES } from '../../shared/themes.js';
 import { calendarAnchor, closeCalendar, openCalendar } from './calendar.js';
 import { formatTrDate } from '../../shared/dates.js';
 import * as A from './actions.js';
-import { PRIORITY_LABELS, PRIORITY_COLORS, applyTheme, confirmModal, dueLabel, esc, formatDateTime, menuAt, modal, promptModal, showMenu, toast } from './ui.js';
-import { INBOX_ID, MAX_DEPTH, ancestors, buildIndex, counts, depthOf, getList, subtreeHeight, todayStr } from '../../shared/store.js';
+import { PRIORITY_LABELS, PRIORITY_COLORS, applyTheme, confirmModal, dueLabel, esc, formatDateTime, menuAt, modal, promptModal, showMenu, tagFill, toast } from './ui.js';
+import { INBOX_ID, MAX_DEPTH, ancestors, buildIndex, counts, depthOf, findTag, getList, subtreeHeight, todayStr } from '../../shared/store.js';
 import { fold } from '../../shared/search.js';
 import { openStagesDialog, renderStagesDialog } from './stages-dialog.js';
 import { buildCompletedRows, buildDueRows, buildListRows, buildSearchRows, buildStageRows, buildTagRows, buildTrashRows } from '../../shared/tree-rows.js';
@@ -55,7 +55,7 @@ const afterState = [];
 
 document.body.classList.add(`os-${api.platform}`);
 
-const invoices = createInvoicesView(els.invoices, { onToggleSidebar: () => els.layout.classList.toggle('no-sidebar') });
+const invoices = createInvoicesView(els.invoices, { onToggleSidebar: () => toggleSidebar() });
 
 const tree = new TaskTree(els.tree, {
   scroller: els.body,
@@ -193,9 +193,11 @@ const showChangelog = () => openChangelog(appVersion, { onSeen: renderRail });
 
 const isActive = (type, id = null) => view.type === type && (id == null || view.id === id);
 
-function navItem(type, id, lead, label, count, { attrs = '', dot = null } = {}) {
-  return `<button type="button" class="nav-item${isActive(type, id) ? ' active' : ''}" data-view="${type}" ${id != null ? `data-id="${esc(id)}"` : ''} ${attrs}>
-    <span class="nav-icon">${lead}</span><span class="nav-label">${esc(label)}</span>${dot ? `<span class="nav-dot" style="background:${esc(dot)}"></span>` : ''}<span class="nav-count">${count || ''}</span></button>`;
+// fill: a tag's colour, which fills its whole box.
+function navItem(type, id, lead, label, count, { attrs = '', fill = null } = {}) {
+  const style = tagFill(fill);
+  return `<button type="button" class="nav-item${isActive(type, id) ? ' active' : ''}${style ? ' filled' : ''}" data-view="${type}" ${id != null ? `data-id="${esc(id)}"` : ''} ${attrs}${style}>
+    <span class="nav-icon">${lead}</span><span class="nav-label">${esc(label)}</span><span class="nav-count">${count || ''}</span></button>`;
 }
 
 function renderSidebar() {
@@ -216,7 +218,7 @@ function renderSidebar() {
       <div class="side-head"><span>Aşama</span><button type="button" class="icon-btn small" data-side="edit-stages" title="Aşamaları düzenle">${icon('edit', 14)}</button></div>
       ${state.stages.map((st, i) => navItem('stage', st.id, '<span class="stage-mark"></span>', st.name, c.stages[i])).join('')}
       ${state.tags.length ? `<div class="side-head"><span>Etiketler</span></div>` : ''}
-      ${state.tags.map((g) => navItem('tag', g.name, icon('tag'), g.name, c.tags.get(g.name.toLocaleLowerCase('tr')), { dot: g.color })).join('')}
+      ${state.tags.map((g) => navItem('tag', g.name, icon('tag'), g.name, c.tags.get(g.name.toLocaleLowerCase('tr')), { fill: g.color })).join('')}
       <div class="side-sep"></div>
       ${navItem('completed', null, icon('completed'), 'Tamamlanan', 0)}
       ${navItem('trash', null, icon('trash'), 'Çöp Kutusu', c.trash)}
@@ -353,7 +355,7 @@ function renderBody() {
   }
   if (view.type !== 'search') showSearchCount(null);
   // Top-level tasks show as reports: stage pipeline and next step.
-  tree.setRows(rows, { ...opts, selectedId, reports: view.type !== 'search' && view.type !== 'trash', stages: state.stages });
+  tree.setRows(rows, { ...opts, selectedId, reports: view.type !== 'search' && view.type !== 'trash', stages: state.stages, tags: state.tags });
   els.empty.hidden = rows.length > 0;
   els.empty.textContent = empty;
 }
@@ -392,7 +394,7 @@ function renderDetail(force = false) {
     return;
   }
   detailDirty = false;
-  els.layout.classList.toggle('has-selection', !!t && !t.deletedAt);
+  setPanelOpen(!!t && !t.deletedAt);
   clearTimeout(detailClear);
   if (!t || t.deletedAt) {
     // The panel slides shut with its content still in it, then empties.
@@ -444,7 +446,7 @@ function renderDetail(force = false) {
       <section class="d-block">
         <h3><span>Etiketler</span></h3>
         <div class="d-tags">
-          ${t.tags.map((g) => `<span class="tag-chip big">#${esc(g)}<button type="button" data-d="tag-remove" data-tag="${esc(g)}" aria-label="#${esc(g)} etiketini kaldır">${icon('x', 11)}</button></span>`).join('')}
+          ${t.tags.map((g) => `<span class="tag-chip big"${tagFill(findTag(state, g)?.color)}>#${esc(g)}<button type="button" data-d="tag-remove" data-tag="${esc(g)}" aria-label="#${esc(g)} etiketini kaldır">${icon('x', 11)}</button></span>`).join('')}
           <input type="text" class="tag-input" data-d="tag-add" placeholder="+ Etiket" list="tag-options" spellcheck="false" aria-label="Etiket ekle">
           <datalist id="tag-options">${state.tags.map((g) => `<option value="${esc(g.name)}"></option>`).join('')}</datalist>
         </div>
@@ -730,7 +732,16 @@ function tagMenuItems(name) {
         if (next && (await A.run({ type: 'tag/update', name, patch: { name: next } })) && view.type === 'tag') go({ type: 'tag', id: next.replace(/^#/, '') });
       },
     },
-    { label: 'Renk', icon: 'tag', items: TAG_COLORS.map(([label, c]) => ({ label, icon: 'tag', color: c, checked: tag?.color === c, action: () => A.run({ type: 'tag/update', name, patch: { color: c } }) })) },
+    {
+      label: 'Renk',
+      icon: 'tag',
+      items: [...TAG_COLORS, ['Renksiz', null]].map(([label, c]) => ({
+        label,
+        fill: c,
+        checked: (tag?.color ?? null) === c,
+        action: () => A.run({ type: 'tag/update', name, patch: { color: c } }),
+      })),
+    },
     'sep',
     {
       label: 'Etiketi sil',
@@ -749,7 +760,7 @@ els.header.addEventListener('click', async (e) => {
   const list = view.type === 'list' ? getList(state, view.id) : null;
   switch (b.dataset.h) {
     case 'sidebar':
-      return els.layout.classList.toggle('no-sidebar');
+      return toggleSidebar();
     case 'new':
       return els.addInput.focus();
     case 'toggle-done':
@@ -759,10 +770,6 @@ els.header.addEventListener('click', async (e) => {
     case 'empty-trash':
       if (await confirmModal({ title: 'Çöp kutusu boşaltılsın mı?', message: 'Çöp kutusundaki tüm görevler kalıcı olarak silinecek.', okLabel: 'Boşalt', danger: true })) A.run({ type: 'trash/empty' });
   }
-});
-
-els.header.addEventListener('dblclick', (e) => {
-  if (e.target.closest('.list-title') && view.type === 'list' && view.id !== INBOX_ID) editList(getList(state, view.id));
 });
 
 // Typing in the header search shows results in place of the list; clearing
@@ -1122,47 +1129,184 @@ addEventListener('drop', (e) => {
   invoices.importFile(file);
 });
 
-// ---------------------------------------------------------------- detail width
+// ---------------------------------------------------------------- sidebar and panel sizes
 
-// The line between the list and the detail panel sets the panel's width;
-// double-click puts it back. The width is kept for the next start.
+// The lines on the left edge of the list and of the task panel size the
+// sidebar and the panel; double-click puts them back. Both widths are kept
+// for the next start.
+const SIDE_KEY = 'xloer-side-w';
+const SIDE = { default: 240, min: 180, max: 420 };
 const DETAIL_KEY = 'xloer-detail-w';
-const DETAIL_DEFAULT = 420;
-const resizer = $('#detail-resizer');
+const DETAIL = { default: 420, min: 320, max: 960 };
+const LIST_MIN = 280;
+const sideLine = $('#side-resizer');
+const detailLine = $('#detail-resizer');
+const listPane = $('.pane-list');
+const width = (el) => el.getBoundingClientRect().width;
+const outward = () => els.layout.classList.contains('outward');
+let sideW = SIDE.default;
+let detailW = DETAIL.default;
+// The list's width while the panel opens outward (see below).
+let listW = 0;
+
+function remember(key, value) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {}
+}
+
+function setListWidth(w) {
+  listW = Math.max(0, Math.round(w));
+  els.layout.style.setProperty('--list-w', `${listW}px`);
+}
+
+function setSideWidth(w, save = false) {
+  const next = Math.round(Math.min(Math.max(w, SIDE.min), SIDE.max));
+  // With the panel open outward the list gives or takes the difference, so
+  // the panel keeps its width.
+  if (outward() && !els.layout.classList.contains('no-sidebar')) setListWidth(width(listPane) - (next - sideW));
+  sideW = next;
+  els.layout.style.setProperty('--side-user', `${sideW}px`);
+  if (save) remember(SIDE_KEY, sideW);
+}
+
+function toggleSidebar() {
+  const hide = !els.layout.classList.contains('no-sidebar');
+  if (outward()) setListWidth(width(listPane) + (hide ? width(els.sidebar) : -sideW));
+  els.layout.classList.toggle('no-sidebar', hide);
+}
 
 function setDetailWidth(w, save = false) {
-  const max = Math.max(320, els.layout.clientWidth - 64 - (els.layout.classList.contains('no-sidebar') ? 0 : 240) - 360);
-  const width = Math.round(Math.min(Math.max(w, 320), max));
-  els.layout.style.setProperty('--detail-w', `${width}px`);
-  if (save) {
-    try {
-      localStorage.setItem(DETAIL_KEY, String(width));
-    } catch {}
-  }
+  detailW = Math.round(Math.min(Math.max(w, DETAIL.min), DETAIL.max));
+  els.layout.style.setProperty('--detail-w', `${detailW}px`);
+  if (save) remember(DETAIL_KEY, detailW);
 }
 
 try {
-  const saved = Number(localStorage.getItem(DETAIL_KEY));
-  if (saved) els.layout.style.setProperty('--detail-w', `${saved}px`);
+  const side = Number(localStorage.getItem(SIDE_KEY));
+  if (side) setSideWidth(side);
+  const detail = Number(localStorage.getItem(DETAIL_KEY));
+  if (detail) setDetailWidth(detail);
 } catch {}
 
-resizer.addEventListener('pointerdown', (e) => {
+function dragLine(line, e, move, done) {
   if (e.button !== 0) return;
   e.preventDefault();
-  resizer.setPointerCapture(e.pointerId);
+  line.setPointerCapture(e.pointerId);
+  line.classList.add('active');
   els.layout.classList.add('resizing');
-  const right = els.layout.getBoundingClientRect().right;
-  const onMove = (ev) => setDetailWidth(right - ev.clientX);
-  const onUp = (ev) => {
-    resizer.removeEventListener('pointermove', onMove);
-    resizer.removeEventListener('pointerup', onUp);
+  const onMove = (ev) => move(ev.clientX);
+  // The capture ends on release, and also when the release is lost
+  // (another window took the mouse), so a drag never stays stuck.
+  const onEnd = () => {
+    line.removeEventListener('pointermove', onMove);
+    line.removeEventListener('lostpointercapture', onEnd);
+    line.classList.remove('active');
     els.layout.classList.remove('resizing');
-    setDetailWidth(right - ev.clientX, true);
+    done();
   };
-  resizer.addEventListener('pointermove', onMove);
-  resizer.addEventListener('pointerup', onUp);
+  line.addEventListener('pointermove', onMove);
+  line.addEventListener('lostpointercapture', onEnd);
+}
+
+sideLine.addEventListener('pointerdown', (e) => {
+  const left = els.sidebar.getBoundingClientRect().left;
+  dragLine(sideLine, e, (x) => setSideWidth(x - left), () => remember(SIDE_KEY, sideW));
 });
-resizer.addEventListener('dblclick', () => setDetailWidth(DETAIL_DEFAULT, true));
+sideLine.addEventListener('dblclick', () => setSideWidth(SIDE.default, true));
+
+detailLine.addEventListener('pointerdown', (e) => {
+  const box = els.layout.getBoundingClientRect();
+  const left = listPane.getBoundingClientRect().left;
+  dragLine(
+    detailLine,
+    e,
+    (x) => {
+      // Open outward, the window keeps its size: the line moves between list and panel.
+      if (outward()) setListWidth(Math.min(Math.max(x - left, LIST_MIN, box.right - DETAIL.max - left), box.right - DETAIL.min - left));
+      else setDetailWidth(Math.min(box.right - x, box.right - left - LIST_MIN));
+    },
+    () => setDetailWidth(outward() ? width(els.detail) : detailW, true),
+  );
+});
+detailLine.addEventListener('dblclick', () => {
+  if (outward()) setListWidth(width(listPane) + width(els.detail) - DETAIL.default);
+  setDetailWidth(DETAIL.default, true);
+});
+
+// The task panel opens outward: the window grows to the right by the
+// panel's width and shrinks back when it closes (main.js moves the window),
+// so the list keeps its place and width. Meanwhile the list is a fixed
+// column (--list-w) and the panel takes the rest of the window; dragging the
+// window's right edge then sizes the panel. Room the screen does not have
+// comes from the list. A maximised or full-screen window, a narrow one (the
+// panel slides over the list) and the browser preview keep their size and
+// open the panel inside, as before.
+const narrow = matchMedia('(max-width: 980px)');
+let win = { maximized: false, fullScreen: false };
+const fixedWindow = () => !api.win || win.maximized || win.fullScreen || narrow.matches;
+let panelWant = false;
+let panelBusy = false;
+
+function setPanelOpen(open) {
+  panelWant = open;
+  if (!panelBusy) runPanel();
+}
+
+// One change at a time, so each one measures a settled window.
+async function runPanel() {
+  panelBusy = true;
+  while (panelWant !== els.layout.classList.contains('has-selection')) await movePanel(panelWant);
+  panelBusy = false;
+}
+
+async function movePanel(open) {
+  const L = els.layout.classList;
+  if (fixedWindow()) {
+    // Inside the window the panel leaves the list at least LIST_MIN.
+    if (open) els.layout.style.setProperty('--detail-w', `${Math.max(DETAIL.min, Math.min(detailW, width(listPane) - LIST_MIN))}px`);
+    L.remove('outward', 'growing');
+    L.toggle('has-selection', open);
+    return;
+  }
+  els.layout.style.setProperty('--detail-w', `${detailW}px`);
+  setListWidth(width(listPane));
+  L.add('outward', 'growing');
+  L.toggle('has-selection', open);
+  const room = open ? detailW : width(els.detail);
+  const got = await (open ? api.win.grow(room) : api.win.shrink(room));
+  // What the window did not give or take, the list does (keeping LIST_MIN when opening).
+  setListWidth(open ? Math.max(Math.min(LIST_MIN, listW), listW + got - room) : listW + room - got);
+  await new Promise((r) => setTimeout(r, 260));
+  L.remove('growing');
+  if (!open && !L.contains('has-selection')) L.remove('outward');
+}
+
+if (api.win) {
+  api.win.state().then((s) => {
+    if (s) win = s;
+  });
+  api.win.onState((s) => {
+    win = s;
+    if (fixedWindow()) {
+      // Maximised with the panel open: the panel keeps its width, the list takes the rest.
+      els.layout.classList.remove('outward', 'growing');
+    } else if (!els.layout.classList.contains('has-selection')) {
+      // Back from maximised after the panel closed there: give its room back.
+      api.win.shrink(Infinity);
+    }
+  });
+}
+
+// Dragging the window's right edge sizes an open panel; keep that width.
+let resizeTimer = null;
+addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const L = els.layout.classList;
+    if (outward() && L.contains('has-selection') && !L.contains('growing') && !panelBusy) setDetailWidth(width(els.detail), true);
+  }, 300);
+});
 
 // ---------------------------------------------------------------- keyboard
 

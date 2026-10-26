@@ -1,7 +1,7 @@
 {
   "name": "xloer",
   "productName": "Xloer",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "Xloer: Windows masaüstü için görev, rapor ve fatura takip uygulaması",
   "author": "Mericsdc",
   "license": "MIT",
@@ -11,7 +11,7 @@
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
     "icon": "electron scripts/make-icon.js",
-    "dist:win": "electron-builder --win nsis portable --x64",
+    "dist:win": "node scripts/release.js --build-only",
     "dist:zip": "electron-builder --win zip --x64",
     "release": "node scripts/release.js"
   },
@@ -42,8 +42,7 @@
     "win": {
       "icon": "build/icon.png",
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ],
       "artifactName": "${productName}-${version}-win-x64.${ext}"
     },
@@ -54,10 +53,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Xloer",
+      "differentialPackage": false,
       "artifactName": "Xloer-Setup-${version}.${ext}"
-    },
-    "portable": {
-      "artifactName": "Xloer-Portable-${version}.${ext}"
     },
     "publish": [
       {
