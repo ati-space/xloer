@@ -129,6 +129,12 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
   ay sınırında bölünür. İpucunda doluluk oranı, test ve proje sayısı görünür.
 
 **Diğer**
+- **Aşamalar:** kenar çubuğunda “Aşama”nın yanındaki kalem: yeni aşama ekle, adını
+  değiştir, ↑/↓ ile sırala, sil. Raporlar aşamalarında kalır; silinen aşamanın
+  raporları “Geri al” ile geri gelir.
+- **Ayrıntı paneli:** bir göreve tıklayınca açılır, × ya da Esc ile kapanır; liste
+  ile panel arasındaki çizgi sürüklenerek genişlik ayarlanır (çift tık: varsayılan).
+- Pencere yalnız en üstteki ince başlık çubuğundan taşınır.
 - **Temalar** (Ayarlar → Görünüm): Laboratuvar, Gece, Orman, Bakır, Mürdüm ve Kontrast;
   her biri koyu, açık ya da sistemle birlikte çalışır.
 - **Yenilikler** (soldaki ✦ düğmesi ya da Ayarlar’ın altı): her sürümde eklenenler,

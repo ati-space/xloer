@@ -89,13 +89,15 @@ function render() {
   if (searching) {
     const r = buildSearchRows(state, query, { listId: w.scope === 'all' ? null : list.id });
     rows = r.rows;
-    els.count.textContent = r.matches ? `${r.matches}` : '0';
-    tree.setRows(rows, { search: true, terms: r.terms, selectedId });
+    els.count.classList.remove('busy');
+    els.count.classList.toggle('none', !r.matches);
+    els.count.textContent = r.matches ? `${r.matches} sonuç` : 'Sonuç yok';
+    tree.setRows(rows, { search: true, terms: r.terms, selectedId, stages: state.stages });
     els.empty.textContent = w.scope === 'all' ? 'Hiçbir listede sonuç yok.' : 'Bu listede sonuç yok. “Tüm listeler”i dene.';
   } else {
     rows = buildListRows(state, list.id, { index });
     els.count.textContent = '';
-    tree.setRows(rows, { dnd: 'tree', selectedId, reports: true });
+    tree.setRows(rows, { dnd: 'tree', selectedId, reports: true, stages: state.stages });
     els.empty.textContent = 'Bu listede görev yok.';
   }
   els.empty.hidden = rows.length > 0;
@@ -111,7 +113,7 @@ function rowAction(act, row, e) {
     case 'toggle':
       return A.toggle(state, row.task);
     case 'stage':
-      return A.setStage(row.task, Number(e.target.closest('[data-stage]').dataset.stage));
+      return A.setStage(row.task, e.target.closest('[data-stage]').dataset.stage);
     case 'open':
       return api.openTask(row.id);
     case 'add-in-section':
@@ -178,11 +180,30 @@ els.more.addEventListener('click', () => {
 
 // ---------------------------------------------------------------- search
 
+// Results follow a moment after the last keystroke; a spinner shows meanwhile.
+let searchTimer = null;
 els.q.addEventListener('input', () => {
-  query = els.q.value;
-  els.body.scrollTop = 0;
-  render();
+  clearTimeout(searchTimer);
+  const run = () => {
+    searchTimer = null;
+    query = els.q.value;
+    els.body.scrollTop = 0;
+    render();
+  };
+  if (!els.q.value.trim()) return run();
+  els.count.textContent = '';
+  els.count.classList.remove('none');
+  els.count.classList.add('busy');
+  searchTimer = setTimeout(run, 140);
 });
+
+function flushSearch() {
+  if (!searchTimer) return;
+  clearTimeout(searchTimer);
+  searchTimer = null;
+  query = els.q.value;
+  render();
+}
 
 els.q.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
@@ -191,6 +212,7 @@ els.q.addEventListener('keydown', (e) => {
     if (query) clearSearch();
     else els.q.blur();
   } else if (e.key === 'Enter' || e.key === 'ArrowDown') {
+    flushSearch();
     const first = tree.rows.find((r) => r.kind === 'task' && !r.context);
     if (!first) return;
     e.preventDefault();

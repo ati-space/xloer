@@ -97,7 +97,7 @@ body.widget {
   font-family: var(--font-mono);
   font-size: 11px;
 }
-.w-count:empty {
+.w-count:empty:not(.busy) {
   display: none;
 }
 .w-search .icon-btn[hidden] {

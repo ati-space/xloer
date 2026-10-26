@@ -178,14 +178,14 @@ test('reports carry a stage and a project code; counts and rows follow them', as
   const { buildListRows, buildStageRows, buildSearchRows } = await import('../src/shared/tree-rows.js');
   const s = seedState();
   const kappa = s.tasks.find((t) => t.title === 'KAPPA Rapor');
-  dispatch(s, { type: 'task/update', id: kappa.id, patch: { stage: 2, code: '  P26-0001-0001 ' } });
-  assert.equal(kappa.stage, 2);
+  dispatch(s, { type: 'task/update', id: kappa.id, patch: { stage: 's2', code: '  P26-0001-0001 ' } });
+  assert.equal(kappa.stage, 's2');
   assert.equal(kappa.code, 'P26-0001-0001');
-  dispatch(s, { type: 'task/update', id: kappa.id, patch: { stage: 9 } });
+  dispatch(s, { type: 'task/update', id: kappa.id, patch: { stage: 'yok' } });
   assert.equal(kappa.stage, null, 'an unknown stage clears it');
-  dispatch(s, { type: 'task/update', id: kappa.id, patch: { stage: 2 } });
+  dispatch(s, { type: 'task/update', id: kappa.id, patch: { stage: 's2' } });
   assert.deepEqual(counts(s).stages, [0, 0, 1, 0, 0]);
-  assert.deepEqual(buildStageRows(s, 2).map((r) => r.task.title), ['KAPPA Rapor']);
+  assert.deepEqual(buildStageRows(s, 's2').map((r) => r.task.title), ['KAPPA Rapor']);
   const row = buildListRows(s, kappa.listId).find((r) => r.id === kappa.id);
   assert.equal(row.nextStep, 'İNG OLACAK 16.10.2026');
   assert.equal(buildSearchRows(s, '0001-0001').matches, 1);
@@ -200,4 +200,31 @@ test('widget pin: fixes the place; a pin from before 1.12 stops floating', () =>
   const s = emptyState();
   dispatch(s, { type: 'settings/update', patch: { widget: { locked: true } } });
   assert.deepEqual([s.settings.widget.locked, s.settings.widget.alwaysOnTop], [true, false]);
+});
+
+test('stages: added, renamed, reordered, removed with undo; old files keep their stage', () => {
+  // A file from before 1.15: no stage list, tasks hold a position.
+  const old = normalizeState({ lists: [], tasks: [{ id: 'x', title: 'a', stage: 3 }, { id: 'y', title: 'b', stage: 7 }] });
+  assert.deepEqual(old.stages.map((st) => st.name), ['Test', 'Veri', 'Rapor', 'Müşteri', 'Fatura']);
+  assert.deepEqual(old.tasks.map((t) => t.stage), ['s3', null]);
+
+  const s = emptyState();
+  const t = dispatch(s, { type: 'task/create', listId: INBOX_ID, title: 'Rapor' });
+  dispatch(s, { type: 'task/update', id: t, patch: { stage: 's3' } });
+  const review = dispatch(s, { type: 'stage/add', name: ' Gözden geçirme ' });
+  assert.equal(s.stages.at(-1).name, 'Gözden geçirme');
+  assert.throws(() => dispatch(s, { type: 'stage/add', name: 'veri' }), /zaten var/);
+  dispatch(s, { type: 'stage/rename', id: 's3', name: 'Müşteride' });
+  assert.equal(s.stages[3].name, 'Müşteride');
+  dispatch(s, { type: 'stage/reorder', ids: [review, 's0', 's1', 's2', 's3', 's4'] });
+  assert.deepEqual(s.stages.map((st) => st.id), [review, 's0', 's1', 's2', 's3', 's4']);
+  assert.deepEqual(counts(s).stages, [0, 0, 0, 0, 1, 0], 'the report follows its stage, not the position');
+  assert.throws(() => dispatch(s, { type: 'stage/reorder', ids: ['s0'] }), /geçersiz/);
+
+  const before = { stages: structuredClone(s.stages), assignments: s.tasks.filter((x) => x.stage === 's3').map((x) => [x.id, x.stage]) };
+  assert.deepEqual(dispatch(s, { type: 'stage/delete', id: 's3' }), { tasks: 1 });
+  assert.equal(s.tasks.find((x) => x.id === t).stage, null);
+  dispatch(s, { type: 'stage/restore', ...before });
+  assert.equal(s.tasks.find((x) => x.id === t).stage, 's3');
+  assert.equal(normalizeState(structuredClone(s)).tasks.find((x) => x.id === t).stage, 's3', 'saved and loaded again');
 });

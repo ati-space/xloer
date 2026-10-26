@@ -4,12 +4,111 @@ body {
   background: var(--bg-list);
 }
 
+/* A thin title bar across the top is the only place that moves the window;
+   on Windows the minimise / maximise / close buttons sit at its right end
+   (titleBarOverlay, 32px), on macOS the traffic lights at its left. The drag
+   area stops where the window buttons start (titlebar-area-*), so the buttons
+   are hit exactly at any scale. */
+body {
+  --titlebar-h: 32px;
+}
+.titlebar {
+  position: relative;
+  height: var(--titlebar-h);
+  display: flex;
+  align-items: center;
+  padding-left: 16px;
+  background: var(--bg-rail);
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+body.os-darwin .titlebar {
+  padding-left: 84px;
+}
+.titlebar-drag {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: env(titlebar-area-x, 0px);
+  width: env(titlebar-area-width, 100%);
+  -webkit-app-region: drag;
+}
+.titlebar-name {
+  position: relative;
+  pointer-events: none;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+/* The detail panel is closed until a task is picked, then slides open to
+   --detail-w (set by dragging the line between list and panel). */
 .layout {
   --side-w: 240px;
+  --detail-w: 420px;
+  --detail-col: 0px;
+  position: relative;
   display: grid;
-  grid-template-columns: 64px var(--side-w) minmax(0, 1fr) minmax(300px, 0.6fr);
+  grid-template-columns: 64px var(--side-w) minmax(0, 1fr) var(--detail-col);
   grid-template-rows: minmax(0, 1fr);
-  height: 100vh;
+  height: calc(100vh - var(--titlebar-h));
+  transition: grid-template-columns 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.layout.has-selection {
+  --detail-col: var(--detail-w);
+}
+.layout.resizing {
+  transition: none;
+  cursor: col-resize;
+  user-select: none;
+}
+.layout.resizing .detail-resizer,
+.layout.resizing .detail-resizer::after {
+  transition: none;
+}
+.pane-detail {
+  overflow: hidden;
+}
+/* Keeps the panel's content at full width while the column opens. */
+.pane-detail > * {
+  min-width: calc(var(--detail-w) - 1px);
+}
+.detail-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: calc(var(--detail-col) - 4px);
+  z-index: 6;
+  width: 8px;
+  cursor: col-resize;
+  opacity: 0;
+  pointer-events: none;
+  transition: right 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.layout.has-selection:not(.mode-invoices) .detail-resizer {
+  opacity: 1;
+  pointer-events: auto;
+}
+.detail-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+.detail-resizer:hover::after,
+.layout.resizing .detail-resizer::after {
+  background: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .layout,
+  .detail-resizer {
+    transition: none;
+  }
 }
 .layout > * {
   min-height: 0;
@@ -31,9 +130,6 @@ body {
   padding: 16px 0 12px;
   background: var(--bg-rail);
   border-right: 1px solid var(--line);
-}
-body.os-darwin .rail {
-  padding-top: 44px;
 }
 .rail-logo {
   width: 40px;
@@ -541,11 +637,8 @@ body.os-darwin .rail {
   padding: 6px 14px 0 18px;
   border-bottom: 1px solid var(--line);
 }
-body.os-win32 .detail-head {
-  padding-right: 150px;
-}
 .detail-close {
-  display: none;
+  display: inline-grid;
 }
 .check.big {
   width: 18px;
@@ -656,7 +749,7 @@ body.os-win32 .detail-head {
 }
 .d-stage {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--stages, 5), minmax(0, 1fr));
   gap: 4px;
 }
 .d-stage-step {
@@ -861,7 +954,7 @@ body.os-win32 .detail-head {
   }
   .pane-detail {
     position: fixed;
-    top: 0;
+    top: var(--titlebar-h);
     right: 0;
     bottom: 0;
     z-index: 50;
@@ -874,11 +967,11 @@ body.os-win32 .detail-head {
   .layout.has-selection .pane-detail {
     transform: none;
   }
-  .detail-close {
-    display: inline-grid;
+  .pane-detail > * {
+    min-width: 0;
   }
-  body.os-win32 .list-header {
-    padding-right: 150px;
+  .detail-resizer {
+    display: none;
   }
 }
 
@@ -905,9 +998,6 @@ body.os-win32 .detail-head {
   align-items: center;
   gap: 10px 12px;
   padding: 18px 18px 6px 14px;
-}
-body.os-win32 .inv-head {
-  padding-right: 150px;
 }
 .inv-total {
   display: flex;
@@ -1782,3 +1872,48 @@ body.file-over .file-drop {
 .manage-gap {
   width: 26px;
 }
+
+/* Aşamalar dialog */
+.stage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.stage-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.stage-no {
+  width: 20px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: right;
+}
+.stage-row .input {
+  flex: 1;
+  min-width: 0;
+}
+.stage-count {
+  width: 58px;
+  text-align: right;
+  white-space: nowrap;
+}
+.stage-row .up svg {
+  transform: rotate(180deg);
+}
+.stage-row .icon-btn:disabled {
+  opacity: 0.3;
+}
+.stage-add {
+  display: flex;
+  gap: 8px;
+}
+.stage-add .input {
+  flex: 1;
+}
+

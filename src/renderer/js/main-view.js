@@ -11,7 +11,9 @@ import { calendarAnchor, closeCalendar, openCalendar } from './calendar.js';
 import { formatTrDate } from '../../shared/dates.js';
 import * as A from './actions.js';
 import { PRIORITY_LABELS, PRIORITY_COLORS, applyTheme, confirmModal, dueLabel, esc, formatDateTime, menuAt, modal, promptModal, showMenu, toast } from './ui.js';
-import { INBOX_ID, MAX_DEPTH, STAGES, ancestors, buildIndex, counts, depthOf, getList, subtreeHeight, todayStr } from '../../shared/store.js';
+import { INBOX_ID, MAX_DEPTH, ancestors, buildIndex, counts, depthOf, getList, subtreeHeight, todayStr } from '../../shared/store.js';
+import { fold } from '../../shared/search.js';
+import { openStagesDialog, renderStagesDialog } from './stages-dialog.js';
 import { buildCompletedRows, buildDueRows, buildListRows, buildSearchRows, buildStageRows, buildTagRows, buildTrashRows } from '../../shared/tree-rows.js';
 import { dateRangeLabel, formatEuro, formatEuroShort, shiftLabel, sortedRows, totalAmount } from '../../shared/invoices.js';
 
@@ -38,7 +40,6 @@ const els = {
 };
 
 const WEEKDAYS = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-const CUSTOMER_STAGE = STAGES.indexOf('Müşteri');
 
 let state = null;
 let appVersion = '';
@@ -88,7 +89,7 @@ function loadView() {
 function validView(v) {
   if (v.type === 'list') return !!getList(state, v.id);
   if (v.type === 'tag') return state.tags.some((g) => g.name === v.id);
-  if (v.type === 'stage') return /^\d$/.test(String(v.id)) && Number(v.id) < STAGES.length;
+  if (v.type === 'stage') return state.stages.some((st) => st.id === v.id);
   return ['today', 'next7', 'completed', 'trash', 'search', 'invoices'].includes(v.type);
 }
 
@@ -99,6 +100,7 @@ function setState(next) {
   if (!validView(view)) view = { type: 'list', id: (state.lists.find((l) => !l.system) ?? state.lists[0]).id };
   if (selectedId && !index.byId.get(selectedId)) selectedId = null;
   render();
+  renderStagesDialog(state);
   for (const fn of afterState.splice(0)) fn();
 }
 
@@ -121,6 +123,8 @@ function go(v, { keepSelection = false } = {}) {
   render();
   if (v.type === 'search') els.search.focus();
 }
+
+let detailClear = null;
 
 function select(id) {
   if (selectedId === id) return;
@@ -201,7 +205,7 @@ function renderSidebar() {
   const scroll = els.sidebar.querySelector('.side-scroll')?.scrollTop ?? 0;
   const last = state.invoices.reduce((a, b) => (!a || b.no > a.no ? b : a), null);
   els.sidebar.innerHTML = `
-    <div class="side-top drag"></div>
+    <div class="side-top"></div>
     <div class="side-scroll">
       <div class="side-head"><span>Görünüm</span></div>
       ${navItem('today', null, dayIcon(Number(todayStr().slice(8))), 'Bugün', c.today)}
@@ -209,8 +213,8 @@ function renderSidebar() {
       <div class="side-head"><span>Listeler</span><button type="button" class="icon-btn small" data-side="add-list" title="Yeni liste">${icon('plus', 15)}</button></div>
       ${navItem('list', INBOX_ID, icon('inbox'), inbox.name, c.lists.get(INBOX_ID), { attrs: `data-drop-list="${INBOX_ID}"` })}
       ${lists.map((l) => navItem('list', l.id, `<span class="emoji">${esc(l.emoji)}</span>`, l.name, c.lists.get(l.id), { attrs: `data-drop-list="${esc(l.id)}"` })).join('')}
-      <div class="side-head"><span>Aşama</span></div>
-      ${STAGES.map((name, i) => navItem('stage', String(i), '<span class="stage-mark"></span>', name, c.stages[i])).join('')}
+      <div class="side-head"><span>Aşama</span><button type="button" class="icon-btn small" data-side="edit-stages" title="Aşamaları düzenle">${icon('edit', 14)}</button></div>
+      ${state.stages.map((st, i) => navItem('stage', st.id, '<span class="stage-mark"></span>', st.name, c.stages[i])).join('')}
       ${state.tags.length ? `<div class="side-head"><span>Etiketler</span></div>` : ''}
       ${state.tags.map((g) => navItem('tag', g.name, icon('tag'), g.name, c.tags.get(g.name.toLocaleLowerCase('tr')), { dot: g.color })).join('')}
       <div class="side-sep"></div>
@@ -238,7 +242,7 @@ function viewTitle() {
     case 'tag':
       return { title: `#${view.id}`, kicker: 'Etiket' };
     case 'stage':
-      return { title: STAGES[Number(view.id)], kicker: 'Aşama' };
+      return { title: stageName(view.id), kicker: 'Aşama' };
     case 'completed':
       return { title: 'Tamamlanan' };
     case 'trash':
@@ -282,18 +286,22 @@ function renderHeader() {
 
 // The four counters above a list: its open reports and steps, reports
 // waiting for the customer, and the invoice total.
+const stageName = (id) => state.stages.find((st) => st.id === id)?.name ?? 'Aşama';
+
 function renderStats() {
   const list = view.type === 'list' ? getList(state, view.id) : null;
   els.stats.hidden = !list;
   if (!list) return;
   const open = state.tasks.filter((t) => !t.deletedAt && !t.done && t.listId === list.id);
   const reports = open.filter((t) => !t.parentId);
+  const customer = state.stages.find((st) => fold(st.name).startsWith('musteri'));
   const tiles = [
     ['Açık rapor', reports.length],
     ['Bekleyen adım', open.length - reports.length],
-    ['Müşteride', reports.filter((t) => t.stage === CUSTOMER_STAGE).length],
+    // Reports waiting on the customer, while a stage of that name exists.
+    customer && ['Müşteride', reports.filter((t) => t.stage === customer.id).length],
     ['Faturalar', formatEuroShort(totalAmount(state.invoices))],
-  ];
+  ].filter(Boolean);
   els.stats.innerHTML = tiles.map(([label, value]) => `<div class="stat"><span class="stat-label">${esc(label)}</span><span class="stat-value">${esc(String(value))}</span></div>`).join('');
 }
 
@@ -319,9 +327,9 @@ function renderBody() {
       empty = 'Bu etikete sahip açık görev yok.';
       break;
     case 'stage':
-      rows = buildStageRows(state, Number(view.id));
+      rows = buildStageRows(state, view.id);
       opts = { dnd: 'external' };
-      empty = `“${STAGES[Number(view.id)]}” aşamasında açık rapor yok. Bir raporun aşamasını satırındaki çizgiye tıklayarak seçebilirsin.`;
+      empty = `“${stageName(view.id)}” aşamasında açık rapor yok. Bir raporun aşamasını satırındaki çizgiye tıklayarak seçebilirsin.`;
       break;
     case 'completed':
       rows = buildCompletedRows(state);
@@ -336,14 +344,16 @@ function renderBody() {
       const r = buildSearchRows(state, query);
       rows = r.rows;
       opts = { search: true, terms: r.terms };
-      empty = query.trim() ? 'Sonuç bulunamadı.' : 'Aramak için yazmaya başla. İpucu: “#RAPOR ing” gibi etiket ve kelimeleri birleştirebilirsin.';
-      els.searchCount.textContent = r.matches ? `${r.matches} sonuç` : '';
+      empty = query.trim()
+        ? `“${query.trim()}” için sonuç bulunamadı. Başka bir kelime dene ya da #etiket ile ara.`
+        : 'Aramak için yazmaya başla. İpucu: “#RAPOR ing” gibi etiket ve kelimeleri birleştirebilirsin.';
+      showSearchCount(r.matches);
       break;
     }
   }
-  if (view.type !== 'search') els.searchCount.textContent = '';
+  if (view.type !== 'search') showSearchCount(null);
   // Top-level tasks show as reports: stage pipeline and next step.
-  tree.setRows(rows, { ...opts, selectedId, reports: view.type !== 'search' && view.type !== 'trash' });
+  tree.setRows(rows, { ...opts, selectedId, reports: view.type !== 'search' && view.type !== 'trash', stages: state.stages });
   els.empty.hidden = rows.length > 0;
   els.empty.textContent = empty;
 }
@@ -383,9 +393,13 @@ function renderDetail(force = false) {
   }
   detailDirty = false;
   els.layout.classList.toggle('has-selection', !!t && !t.deletedAt);
+  clearTimeout(detailClear);
   if (!t || t.deletedAt) {
+    // The panel slides shut with its content still in it, then empties.
     els.detail.dataset.id = '';
-    els.detail.innerHTML = `<div class="detail-head drag"></div><div class="detail-empty">${icon('tasks', 44)}<p>Ayrıntılarını görmek için bir göreve tıkla</p></div>`;
+    detailClear = setTimeout(() => {
+      if (!els.layout.classList.contains('has-selection')) els.detail.innerHTML = '';
+    }, 300);
     return;
   }
   els.detail.dataset.id = t.id;
@@ -397,7 +411,7 @@ function renderDetail(force = false) {
   const canNest = depthOf(index, t) < MAX_DEPTH;
   const report = !t.parentId;
   els.detail.innerHTML = `
-    <div class="detail-head drag">
+    <div class="detail-head">
       <button type="button" class="check big p${t.priority}" data-d="toggle" role="checkbox" aria-checked="${t.done}" title="Tamamlandı">${icon('checkmark', 13)}</button>
       <span class="d-divider"></span>
       <button type="button" class="date-pill${t.due ? ' set' : ''} ${due?.tone ?? ''}" data-d="due" title="Bitiş tarihi${t.due ? `: ${formatTrDate(t.due)}` : ''}" aria-haspopup="dialog">${icon('calendar', 15)}<span>${due ? esc(due.text) : 'Tarih ekle'}</span></button>
@@ -446,11 +460,13 @@ function renderDetail(force = false) {
 }
 
 function stageHtml(t) {
-  const steps = STAGES.map((name, i) => {
-    const cls = t.stage == null ? '' : i < t.stage ? ' done' : i === t.stage ? ' now' : '';
-    return `<button type="button" class="d-stage-step${cls}" data-d="stage" data-stage="${i}" aria-pressed="${t.stage === i}"><span class="bar"></span><span class="lbl">${esc(name)}</span></button>`;
+  const at = state.stages.findIndex((st) => st.id === t.stage);
+  const steps = state.stages.map((st, i) => {
+    const cls = at < 0 ? '' : i < at ? ' done' : i === at ? ' now' : '';
+    return `<button type="button" class="d-stage-step${cls}" data-d="stage" data-stage="${esc(st.id)}" aria-pressed="${i === at}"><span class="bar"></span><span class="lbl">${esc(st.name)}</span></button>`;
   });
-  return `<section class="d-block"><h3><span>Aşama</span>${t.stage == null ? '<span class="muted">seçilmedi</span>' : ''}</h3><div class="d-stage" role="group" aria-label="Aşama">${steps.join('')}</div></section>`;
+  if (!steps.length) return '';
+  return `<section class="d-block"><h3><span>Aşama</span>${at < 0 ? '<span class="muted">seçilmedi</span>' : ''}</h3><div class="d-stage" role="group" aria-label="Aşama" style="--stages:${steps.length}">${steps.join('')}</div></section>`;
 }
 
 // The invoice card that has this report's project code: its tests, amount
@@ -506,7 +522,7 @@ els.detail.addEventListener('click', (e) => {
     case 'priority':
       return menuAt(b, A.priorityItems(t));
     case 'stage':
-      return A.setStage(t, Number(b.dataset.stage));
+      return A.setStage(t, b.dataset.stage);
     case 'inv-copy':
       return A.copyInvoiceTable(linkedInvoice(t));
     case 'inv-open':
@@ -601,7 +617,7 @@ function rowAction(act, row, e) {
     case 'toggle':
       return A.toggle(state, row.task);
     case 'stage':
-      return A.setStage(row.task, Number(e.target.closest('[data-stage]').dataset.stage));
+      return A.setStage(row.task, e.target.closest('[data-stage]').dataset.stage);
     case 'add-in-section':
       return A.addInSection(tree, list, row.id);
     case 'section-menu': {
@@ -678,6 +694,7 @@ function listMenuItems(list) {
 
 els.sidebar.addEventListener('click', (e) => {
   if (e.target.closest('[data-side="add-list"]')) return addList();
+  if (e.target.closest('[data-side="edit-stages"]')) return openStagesDialog(state);
   const item = e.target.closest('[data-view]');
   if (!item) return;
   go({ type: item.dataset.view, id: item.dataset.id ?? null });
@@ -763,14 +780,57 @@ function setQuery(text) {
   } else renderBody();
 }
 
+// Search feedback: a spinner while typing, then "N sonuç" or "Sonuç yok";
+// results follow a moment after the last keystroke.
+const SEARCH_DELAY = 140;
+let searchTimer = null;
+
+function showSearchCount(matches) {
+  const el = els.searchCount;
+  el.classList.remove('busy', 'none');
+  if (matches == null || !query.trim()) el.textContent = '';
+  else if (matches) el.textContent = `${matches} sonuç`;
+  else {
+    el.textContent = 'Sonuç yok';
+    el.classList.add('none');
+  }
+}
+
+function flushSearch() {
+  if (!searchTimer) return;
+  clearTimeout(searchTimer);
+  searchTimer = null;
+  setQuery(els.search.value);
+}
+
+// A short ring around a box, so a click or a key that moved the focus there shows.
+function flash(el, cls = 'pulse') {
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+
 function focusSearch() {
   if (view.type === 'invoices') go(searchReturn ?? { type: 'list', id: (state.lists.find((l) => !l.system) ?? state.lists[0]).id });
   els.search.focus();
   els.search.select();
+  flash(els.search.closest('.search-box'));
 }
 
 els.header.addEventListener('input', (e) => {
-  if (e.target === els.search) setQuery(e.target.value);
+  if (e.target !== els.search) return;
+  clearTimeout(searchTimer);
+  if (!e.target.value.trim()) {
+    searchTimer = null;
+    return setQuery('');
+  }
+  els.searchCount.textContent = '';
+  els.searchCount.classList.remove('none');
+  els.searchCount.classList.add('busy');
+  searchTimer = setTimeout(() => {
+    searchTimer = null;
+    setQuery(els.search.value);
+  }, SEARCH_DELAY);
 });
 
 els.header.addEventListener('keydown', (e) => {
@@ -781,8 +841,12 @@ els.header.addEventListener('keydown', (e) => {
     els.search.value = '';
     setQuery('');
   } else if (e.key === 'ArrowDown' || e.key === 'Enter') {
+    flushSearch();
     const first = tree.rows.find((r) => r.kind === 'task' && !r.context);
-    if (!first) return;
+    if (!first) {
+      if (query.trim()) flash(els.search.closest('.search-box'), 'nohit');
+      return;
+    }
     e.preventDefault();
     if (e.key === 'Enter') reveal(first.id);
     else {
@@ -1057,6 +1121,48 @@ addEventListener('drop', (e) => {
   if (view.type !== 'invoices') go({ type: 'invoices' });
   invoices.importFile(file);
 });
+
+// ---------------------------------------------------------------- detail width
+
+// The line between the list and the detail panel sets the panel's width;
+// double-click puts it back. The width is kept for the next start.
+const DETAIL_KEY = 'xloer-detail-w';
+const DETAIL_DEFAULT = 420;
+const resizer = $('#detail-resizer');
+
+function setDetailWidth(w, save = false) {
+  const max = Math.max(320, els.layout.clientWidth - 64 - (els.layout.classList.contains('no-sidebar') ? 0 : 240) - 360);
+  const width = Math.round(Math.min(Math.max(w, 320), max));
+  els.layout.style.setProperty('--detail-w', `${width}px`);
+  if (save) {
+    try {
+      localStorage.setItem(DETAIL_KEY, String(width));
+    } catch {}
+  }
+}
+
+try {
+  const saved = Number(localStorage.getItem(DETAIL_KEY));
+  if (saved) els.layout.style.setProperty('--detail-w', `${saved}px`);
+} catch {}
+
+resizer.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  resizer.setPointerCapture(e.pointerId);
+  els.layout.classList.add('resizing');
+  const right = els.layout.getBoundingClientRect().right;
+  const onMove = (ev) => setDetailWidth(right - ev.clientX);
+  const onUp = (ev) => {
+    resizer.removeEventListener('pointermove', onMove);
+    resizer.removeEventListener('pointerup', onUp);
+    els.layout.classList.remove('resizing');
+    setDetailWidth(right - ev.clientX, true);
+  };
+  resizer.addEventListener('pointermove', onMove);
+  resizer.addEventListener('pointerup', onUp);
+});
+resizer.addEventListener('dblclick', () => setDetailWidth(DETAIL_DEFAULT, true));
 
 // ---------------------------------------------------------------- keyboard
 

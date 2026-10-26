@@ -13,8 +13,13 @@ export const INBOX_ID = 'inbox';
 export const MAX_DEPTH = 4;
 export const PRIORITIES = [0, 1, 2, 3]; // none, low, medium, high
 // Where a report stands; a task's `stage` is an index into this or null.
-export const STAGES = ['Test', 'Veri', 'Rapor', 'Müşteri', 'Fatura'];
-const isStage = (v) => Number.isInteger(v) && v >= 0 && v < STAGES.length;
+// Report stages are the user's own list (state.stages, edited under Aşama);
+// these are the first ones. A task keeps its stage's id, so renaming and
+// reordering stages leaves reports where they are.
+export const DEFAULT_STAGES = ['Test', 'Veri', 'Rapor', 'Müşteri', 'Fatura'];
+const MAX_STAGES = 12;
+const defaultStages = () => DEFAULT_STAGES.map((name, i) => ({ id: `s${i}`, name }));
+const isStage = (state, id) => typeof id === 'string' && state.stages.some((st) => st.id === id);
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -53,6 +58,7 @@ export function emptyState() {
     tasks: [],
     tags: [],
     invoices: [],
+    stages: defaultStages(),
     devices: DEFAULT_DEVICES.map((d) => ({ ...d })),
     testTypes: [...DEFAULT_TEST_TYPES],
     // Merged device names: an imported "from" becomes "to".
@@ -131,7 +137,9 @@ function normalizeTask(t) {
     doneAt: num(t.doneAt),
     due: typeof t.due === 'string' && DATE_RE.test(t.due) ? t.due : null,
     priority: PRIORITIES.includes(t.priority) ? t.priority : 0,
-    stage: isStage(t.stage) ? t.stage : null,
+    // An id from state.stages; files from before 1.15 hold a position (0–4),
+    // turned into an id by normalizeState.
+    stage: typeof t.stage === 'string' || Number.isInteger(t.stage) ? t.stage : null,
     code: typeof t.code === 'string' ? t.code.trim() : '',
     tags: uniqueStrings(t.tags),
     collapsed: !!t.collapsed,
@@ -210,6 +218,11 @@ export function normalizeState(raw) {
   s.tags = tags;
   for (const t of s.tasks) for (const name of t.tags) ensureTag(s, name);
   normalizeInvoiceData(s, raw);
+  s.stages = normalizeStages(raw.stages);
+  for (const t of s.tasks) {
+    if (Number.isInteger(t.stage)) t.stage = Array.isArray(raw.stages) ? null : (s.stages[t.stage]?.id ?? null);
+    else if (!isStage(s, t.stage)) t.stage = null;
+  }
   s.settings = normalizeSettings(raw.settings);
   return s;
 }
@@ -286,6 +299,17 @@ function normalizeAliases(list) {
 export function deviceAlias(state, name) {
   const hit = (state.deviceAliases ?? []).find((a) => foldName(a.from) === foldName(name));
   return hit ? hit.to : name;
+}
+
+function normalizeStages(list) {
+  if (!Array.isArray(list)) return defaultStages();
+  const out = [];
+  for (const st of list) {
+    const id = typeof st?.id === 'string' ? st.id : '';
+    const name = typeof st?.name === 'string' ? st.name.trim() : '';
+    if (id && name && !out.some((x) => x.id === id) && out.length < MAX_STAGES) out.push({ id, name });
+  }
+  return out;
 }
 
 const foldName = (v) => String(v).trim().replace(/\s+/g, ' ').toLocaleLowerCase('tr');
@@ -373,7 +397,8 @@ export function counts(state) {
   let todayCount = 0;
   let next7 = 0;
   let trash = 0;
-  const stages = STAGES.map(() => 0);
+  const stageAt = new Map(state.stages.map((st, i) => [st.id, i]));
+  const stages = state.stages.map(() => 0);
   const byId = new Map(state.tasks.map((t) => [t.id, t]));
   for (const t of state.tasks) {
     if (t.deletedAt) {
@@ -389,7 +414,7 @@ export function counts(state) {
     }
     if (t.due && t.due <= today) todayCount++;
     if (t.due && t.due <= weekEnd) next7++;
-    if (!t.parentId && t.stage != null) stages[t.stage]++;
+    if (!t.parentId && stageAt.has(t.stage)) stages[stageAt.get(t.stage)]++;
   }
   return { lists, tags, today: todayCount, next7, trash, stages };
 }
@@ -450,7 +475,7 @@ function cleanPatch(state, task, patch = {}) {
   if ('due' in patch) task.due = typeof patch.due === 'string' && DATE_RE.test(patch.due) ? patch.due : null;
   if ('priority' in patch && PRIORITIES.includes(patch.priority)) task.priority = patch.priority;
   if ('collapsed' in patch) task.collapsed = !!patch.collapsed;
-  if ('stage' in patch) task.stage = isStage(patch.stage) ? patch.stage : null;
+  if ('stage' in patch) task.stage = isStage(state, patch.stage) ? patch.stage : null;
   if ('code' in patch) task.code = typeof patch.code === 'string' ? patch.code.trim() : task.code;
   if ('tags' in patch) {
     task.tags = uniqueStrings(patch.tags);
@@ -984,6 +1009,55 @@ const handlers = {
 
   'device/unalias'(s, { from }) {
     s.deviceAliases = s.deviceAliases.filter((a) => foldName(a.from) !== foldName(from));
+  },
+
+  // ---- stages (Aşama): added, renamed, removed and reordered by the user
+
+  'stage/add'(s, { name }) {
+    const clean = cleanName(name, '');
+    if (!clean) throw new Error('Aşama adı boş olamaz');
+    if (findNamed(s.stages.map((st) => st.name), clean)) throw new Error('Bu aşama zaten var');
+    if (s.stages.length >= MAX_STAGES) throw new Error(`En fazla ${MAX_STAGES} aşama olabilir`);
+    const stage = { id: uid('st'), name: clean };
+    s.stages.push(stage);
+    return stage.id;
+  },
+
+  'stage/rename'(s, { id, name }) {
+    const stage = s.stages.find((st) => st.id === id);
+    if (!stage) throw new Error('Aşama bulunamadı');
+    const clean = cleanName(name, '');
+    if (!clean) throw new Error('Aşama adı boş olamaz');
+    if (s.stages.some((st) => st.id !== id && foldName(st.name) === foldName(clean))) throw new Error('Bu aşama zaten var');
+    stage.name = clean;
+  },
+
+  // Reports in a removed stage are left with none.
+  'stage/delete'(s, { id }) {
+    if (!s.stages.some((st) => st.id === id)) throw new Error('Aşama bulunamadı');
+    s.stages = s.stages.filter((st) => st.id !== id);
+    let tasks = 0;
+    for (const t of s.tasks) {
+      if (t.stage === id) {
+        t.stage = null;
+        tasks++;
+      }
+    }
+    return { tasks };
+  },
+
+  'stage/reorder'(s, { ids = [] }) {
+    if (ids.length !== s.stages.length || !s.stages.every((st) => ids.includes(st.id))) throw new Error('Aşama sırası geçersiz');
+    s.stages = ids.map((id) => s.stages.find((st) => st.id === id));
+  },
+
+  // Undo for a removal: the stages as they were and the reports that had it.
+  'stage/restore'(s, { stages, assignments = [] }) {
+    s.stages = normalizeStages(stages);
+    for (const [taskId, stage] of assignments) {
+      const t = s.tasks.find((x) => x.id === taskId);
+      if (t && isStage(s, stage)) t.stage = stage;
+    }
   },
 
   'device/add'(s, { name, test = '' }) {

@@ -1,7 +1,7 @@
 {
   "name": "xloer",
   "productName": "Xloer",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "description": "Xloer: Windows masaüstü için görev, rapor ve fatura takip uygulaması",
   "author": "Mericsdc",
   "license": "MIT",
@@ -26,6 +26,10 @@
     "appId": "com.mericsdc.xloer",
     "productName": "Xloer",
     "copyright": "© 2026 Mericsdc",
+    "electronLanguages": [
+      "tr",
+      "en-US"
+    ],
     "directories": {
       "output": "dist",
       "buildResources": "build"

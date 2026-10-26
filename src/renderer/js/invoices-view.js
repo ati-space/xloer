@@ -65,7 +65,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
   const issuesOf = (inv) => invoiceIssues(inv, todayStr());
 
   el.innerHTML = `
-    <header class="inv-head drag">
+    <header class="inv-head">
       <button type="button" class="icon-btn" data-i="sidebar" title="Kenar çubuğunu aç/kapat">${icon('menu')}</button>
       <div class="hd-title"><div class="hd-date">Test faturaları</div><h1 class="list-title"><span class="name">Faturalar</span></h1></div>
       <div class="seg inv-tabs" role="radiogroup" aria-label="Görünüm">

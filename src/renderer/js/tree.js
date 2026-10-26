@@ -4,7 +4,6 @@
 import { icon } from './icons.js';
 import { esc, dueLabel } from './ui.js';
 import { highlightRanges } from '../../shared/search.js';
-import { STAGES } from '../../shared/store.js';
 import { attachDnd } from './dnd.js';
 
 function marked(text, terms) {
@@ -115,13 +114,18 @@ export class TaskTree {
   }
 
   // Stage pipeline (click a segment to set the stage) and the next open step.
+  // The stages are the user's list, passed in with the rows.
   pipeHtml(t, nextStep) {
-    const segs = STAGES.map((name, i) => {
-      const mark = t.stage == null ? '' : i < t.stage ? ' done' : i === t.stage ? ' now' : '';
-      return `<button type="button" class="pipe-seg${mark}" data-act="stage" data-stage="${i}" tabindex="-1" title="Aşama: ${name}" aria-label="Aşama: ${name}"></button>`;
+    const stages = this.view.stages ?? [];
+    const next = `<span class="next" title="${esc(nextStep)}">${esc(nextStep)}</span>`;
+    if (!stages.length) return next;
+    const at = stages.findIndex((st) => st.id === t.stage);
+    const segs = stages.map((st, i) => {
+      const mark = at < 0 ? '' : i < at ? ' done' : i === at ? ' now' : '';
+      return `<button type="button" class="pipe-seg${mark}" data-act="stage" data-stage="${esc(st.id)}" tabindex="-1" title="Aşama: ${esc(st.name)}" aria-label="Aşama: ${esc(st.name)}"></button>`;
     });
-    const label = t.stage == null ? '<span class="pipe-label unset">Aşama seç</span>' : `<span class="pipe-label">${esc(STAGES[t.stage])}</span>`;
-    return `<span class="pipe"><span class="pipe-segs">${segs.join('')}</span>${label}</span><span class="next" title="${esc(nextStep)}">${esc(nextStep)}</span>`;
+    const label = at < 0 ? '<span class="pipe-label unset">Aşama seç</span>' : `<span class="pipe-label">${esc(stages[at].name)}</span>`;
+    return `<span class="pipe"><span class="pipe-segs">${segs.join('')}</span>${label}</span>${next}`;
   }
 
   rowFor(target) {

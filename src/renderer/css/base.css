@@ -203,6 +203,66 @@ button:focus-visible,
 .drag {
   -webkit-app-region: drag;
 }
+/* Dialogs, menus and popovers float over the title bar and headers; a drag
+   region under them would swallow their clicks, so they never drag. */
+/* Search feedback (main window and widget): spinner, "Sonuç yok", and a
+   short ring when the box is focused from a button or finds nothing. */
+.search-count.busy,
+.w-count.busy {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+.search-count.none,
+.w-count.none {
+  color: var(--warn);
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.pulse {
+  animation: pulse-ring 0.7s ease-out;
+}
+@keyframes pulse-ring {
+  from {
+    box-shadow: 0 0 0 4px var(--accent-soft), 0 0 0 1px var(--accent);
+  }
+  to {
+    box-shadow: 0 0 0 10px transparent, 0 0 0 1px transparent;
+  }
+}
+.nohit {
+  animation: nohit 0.3s ease-in-out;
+}
+@keyframes nohit {
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .nohit {
+    animation: none;
+  }
+}
+
+.modal-back,
+.menu,
+.cal,
+.toasts,
+.file-drop,
+.viz-tip {
+  -webkit-app-region: no-drag;
+}
 .drag button,
 .drag input,
 .drag label,

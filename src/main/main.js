@@ -12,7 +12,6 @@ import { seedState } from '../shared/seed.js';
 import { paletteOf } from '../shared/themes.js';
 import { parseTasksCsv } from '../shared/tasks-csv.js';
 import { createStorage } from './storage.js';
-import { createUpdater } from './updater.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const RENDERER = path.join(here, '..', 'renderer');
@@ -42,6 +41,9 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(start);
 }
 
+// The main window comes first and shows at once (in its theme's colour);
+// the widget, the tray icon and the updater follow once it has painted, so
+// they do not hold up the start.
 function start() {
   if (isWin) app.setAppUserModelId('com.mericsdc.xloer');
   setupMenu();
@@ -51,6 +53,26 @@ function start() {
     state = seedState();
     storage.saveNow(state);
   }
+  registerIpc();
+  nativeTheme.themeSource = state.settings.theme;
+  nativeTheme.on('updated', updateThemeColors);
+  if (autostarted) return startRest();
+  createMainWindow();
+  let started = false;
+  const rest = () => {
+    if (started) return;
+    started = true;
+    startRest();
+  };
+  mainWin.once('ready-to-show', () => setTimeout(rest, 150));
+  setTimeout(rest, 2500);
+}
+
+async function startRest() {
+  createTray();
+  applySettings(null);
+  // electron-updater and its dependencies load only now.
+  const { createUpdater } = await import('./updater.js');
   updater = createUpdater({
     broadcast: (update) => {
       sendAll('update:state', update);
@@ -61,11 +83,9 @@ function start() {
       storage.flush();
     },
   });
-  registerIpc();
-  nativeTheme.on('updated', updateThemeColors);
-  createTray();
-  applySettings(null);
-  if (!autostarted) createMainWindow();
+  updater.setAutomatic(state.settings.autoUpdate);
+  updateTrayMenu();
+  sendAll('update:state', updater.get());
 }
 
 app.on('before-quit', () => {
@@ -115,7 +135,7 @@ function applySettings(prev) {
     widgetWin.setResizable(!s.widget.locked);
   }
   if (!prev || prev.startWithWindows !== s.startWithWindows) updateLoginItem();
-  if (!prev || prev.autoUpdate !== s.autoUpdate) updater.setAutomatic(s.autoUpdate);
+  if (!prev || prev.autoUpdate !== s.autoUpdate) updater?.setAutomatic(s.autoUpdate);
   updateThemeColors();
   updateTrayMenu();
 }
@@ -131,7 +151,8 @@ function updateLoginItem() {
 function colors() {
   const p = paletteOf(state.settings.palette);
   const c = nativeTheme.shouldUseDarkColors ? p.dark : p.light;
-  return { bg: c.bg, widget: c.widget, overlay: { color: c.bar, symbolColor: c.text, height: 40 } };
+  // The window buttons sit in the 32px title bar, on its colour (--bg-rail).
+  return { bg: c.bg, widget: c.widget, overlay: { color: c.bg, symbolColor: c.text, height: 32 } };
 }
 
 function updateThemeColors() {
@@ -145,8 +166,10 @@ function updateThemeColors() {
 
 // ---------------------------------------------------------------- windows
 
+// v8CacheOptions: compiled page scripts are cached from the first run, so
+// later starts skip compiling them again.
 function webPreferences() {
-  return { preload: PRELOAD, contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false };
+  return { preload: PRELOAD, contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false, v8CacheOptions: 'bypassHeatCheck' };
 }
 
 function onScreen(b) {
@@ -176,18 +199,21 @@ function createMainWindow() {
     ...(onScreen(saved) ? { x: saved.x, y: saved.y } : {}),
     minWidth: 720,
     minHeight: 460,
-    show: false,
+    // Shown at once in its theme's colour; a maximised one after maximising.
+    show: !saved.maximized,
     title: 'Xloer',
     icon: ICON,
     backgroundColor: c.bg,
     titleBarStyle: 'hidden',
-    ...(isWin ? { titleBarOverlay: c.overlay } : { trafficLightPosition: { x: 18, y: 14 } }),
+    ...(isWin ? { titleBarOverlay: c.overlay } : { trafficLightPosition: { x: 16, y: 10 } }),
     webPreferences: webPreferences(),
   });
-  if (saved.maximized) mainWin.maximize();
+  if (saved.maximized) {
+    mainWin.maximize();
+    mainWin.show();
+  }
   harden(mainWin);
   mainWin.loadFile(path.join(RENDERER, 'index.html'));
-  mainWin.once('ready-to-show', () => mainWin?.show());
   mainWin.on('close', (e) => {
     storage.saveWindowState('main', { ...mainWin.getNormalBounds(), maximized: mainWin.isMaximized() });
     if (quitting) return;
@@ -275,7 +301,7 @@ function createTray() {
 function updateTrayMenu() {
   if (!tray) return;
   const w = state.settings.widget;
-  const u = updater.get();
+  const u = updater?.get() ?? { status: 'idle' };
   const updateItem =
     u.status === 'downloaded'
       ? { label: `Yeniden başlat ve güncelle (v${u.version})`, click: () => updater.install() }
@@ -345,11 +371,12 @@ function registerIpc() {
     showMain();
   });
 
-  ipcMain.handle('update:get', () => updater.get());
-  ipcMain.handle('update:check', () => updater.check());
-  ipcMain.handle('update:download', () => updater.download());
-  ipcMain.handle('update:install', () => updater.install());
-  ipcMain.handle('update:open-page', () => updater.openPage());
+  // The updater loads a moment after start; until then it is "idle".
+  ipcMain.handle('update:get', () => updater?.get() ?? { status: 'idle' });
+  ipcMain.handle('update:check', () => updater?.check());
+  ipcMain.handle('update:download', () => updater?.download());
+  ipcMain.handle('update:install', () => updater?.install());
+  ipcMain.handle('update:open-page', () => updater?.openPage());
   ipcMain.handle('update:open-panel', () => navigate({ type: 'update' }));
 
   ipcMain.handle('app:info', () => ({

@@ -8,6 +8,19 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.15.0',
+    date: '2026-10-26',
+    title: 'Başlık çubuğu, aşamalar, ayrıntı paneli',
+    items: [
+      ['fix', 'Pencere yalnız en üstteki başlık çubuğundan taşınır; ikonlar, düğmeler ve başlıklar artık pencereyi sürüklemez'],
+      ['fix', 'Pencere küçükken iletişim kutularının X düğmesi (ör. Yenilikler) tam üzerinden tıklanır; pencere düğmeleri başlık çubuğunda, her ölçeklendirmede yerinde'],
+      ['better', 'Arama: yazarken dönen gösterge, ardından “N sonuç” ya da “Sonuç yok”; arama düğmesi kutuyu vurgular (widget’ta da)'],
+      ['better', 'Daha hızlı açılış: ana pencere hemen görünür, widget, tepsi ve güncelleyici arkadan yüklenir; kurulum yalnız Türkçe ve İngilizce dil dosyalarıyla daha küçük'],
+      ['new', 'Aşamalar düzenlenebilir: kenar çubuğunda “Aşama”nın yanındaki kalemle yeni aşama ekle, adını değiştir, sırala, sil (“Geri al” ile); raporlar aşamalarında kalır'],
+      ['new', 'Ayrıntı paneli bir göreve tıklayınca kayarak açılır, kapatınca kapanır; liste ile panel arasındaki çizgiyle genişliği ayarlanır ve hatırlanır'],
+    ],
+  },
+  {
     version: '1.14.0',
     date: '2026-10-26',
     title: 'Fatura yılı',

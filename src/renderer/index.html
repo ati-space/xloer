@@ -11,8 +11,10 @@
     <script type="module" src="js/main-view.js"></script>
   </head>
   <body>
+    <!-- The only part of the window that moves it; the window buttons sit at its right. -->
+    <header class="titlebar" id="titlebar"><div class="titlebar-drag"></div><span class="titlebar-name">Xloer</span></header>
     <div id="app" class="layout">
-      <nav id="rail" class="rail drag" aria-label="Ana menü">
+      <nav id="rail" class="rail" aria-label="Ana menü">
         <img class="rail-logo" src="img/logo.png" alt="" aria-hidden="true" />
         <button type="button" class="rail-btn" data-rail="tasks" title="Görevler">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" /><path d="m8 12 3 3 5-6" /></svg>
@@ -41,7 +43,7 @@
       </nav>
       <aside id="sidebar" class="sidebar" aria-label="Listeler"></aside>
       <main class="pane-list">
-        <header id="list-header" class="list-header drag">
+        <header id="list-header" class="list-header">
           <button type="button" class="icon-btn" data-h="sidebar" title="Kenar çubuğunu aç/kapat">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6.5h16M4 12h11M4 17.5h16" /></svg>
           </button>
@@ -69,6 +71,7 @@
         </div>
       </main>
       <section id="detail" class="pane-detail" aria-label="Görev ayrıntıları"></section>
+      <div class="detail-resizer" id="detail-resizer" role="separator" aria-orientation="vertical" aria-label="Ayrıntı paneli genişliği" title="Sürükle: panel genişliği · çift tıkla: varsayılan" tabindex="-1"></div>
       <section id="invoices" class="inv-pane" aria-label="Faturalar"></section>
     </div>
   </body>
