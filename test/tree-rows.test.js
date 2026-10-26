@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dispatch, buildIndex } from '../src/shared/store.js';
+import { dispatch, buildIndex, emptyState } from '../src/shared/store.js';
 import { reportsState as seedState } from './fixtures.js';
 import { buildListRows, buildSearchRows, projectTaskDrop, sectionDropIndex } from '../src/shared/tree-rows.js';
 
@@ -159,4 +159,17 @@ test('search: a matching task brings its subtasks, not dimmed', () => {
   const kids = s.tasks.filter((t) => t.parentId === tasks[0].task.id);
   dispatch(s, { type: 'task/toggle', id: kids[0].id });
   assert.equal(buildSearchRows(s, 'omega', { includeDone: false }).rows.filter((r) => r.kind === 'task').length, 2);
+});
+
+test('search: subtasks two levels down, under a collapsed task, done ones included', () => {
+  const s = emptyState();
+  const listId = dispatch(s, { type: 'list/create', name: 'Work' });
+  const jobs = dispatch(s, { type: 'task/create', listId, title: 'İşler' });
+  const project = dispatch(s, { type: 'task/create', parentId: jobs, title: 'ÖRNEK 10 ADET TEST' });
+  for (const title of ['Verileri kontrol et', '1.Test - 05.08.2026', '2.Test - 07.09.2026', '3.Test - 29.09.2026']) dispatch(s, { type: 'task/create', parentId: project, title });
+  dispatch(s, { type: 'task/toggle', id: s.tasks.find((t) => t.title === 'Verileri kontrol et').id });
+  dispatch(s, { type: 'task/update', id: project, patch: { collapsed: true } });
+  const shown = (q) => buildSearchRows(s, q, { listId }).rows.filter((r) => r.kind === 'task').map((r) => `${r.depth}${r.context ? '~' : ''} ${r.task.title}`);
+  assert.deepEqual(shown('örnek 10'), ['0~ İşler', '1 ÖRNEK 10 ADET TEST', '2 Verileri kontrol et', '2 1.Test - 05.08.2026', '2 2.Test - 07.09.2026', '2 3.Test - 29.09.2026']);
+  assert.deepEqual(shown('2.test'), ['0~ İşler', '1~ ÖRNEK 10 ADET TEST', '2 2.Test - 07.09.2026']);
 });

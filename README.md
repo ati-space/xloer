@@ -56,10 +56,11 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
   yoksa “Fatura kartı oluştur” ile açılır. Arama proje koduyla da bulur.
 
 **Fatura takibi (Faturalar)**
-- Soldaki fiş simgesi. Her proje bir kart: sıra no, proje kodu, müşteri/test adı,
-  rapor no, test satırları ve tutar (€). Üstte tüm projelerin toplamı.
+- Soldaki fiş simgesi. Her proje bir kart: sıra no, tek satırlık başlık (Excel’deki
+  gibi “P26-…-MÜŞTERİ Test adı (TEST…)”: proje kodu, müşteri/test adı, rapor no),
+  test satırları ve tutar (€). Üstte tüm projelerin toplamı.
 - Satırda yalnızca **cihazı** ve **tarihleri** seç; test türü cihazdan gelir
-  (değiştirilebilir). Bitiş tarihi boşsa tek gündür.
+  (değiştirilebilir). Tek günlük testte iki tarih de aynı gündür.
 - **Gün / Vardiya** kendiliğinden hesaplanır: gün sayısı (iki uç dahil) / gün × 3,
   çünkü günde 3 vardiya dönülüyor (ör. 15.09–28.09 → 14/42).
 - Kopyalama simgesi, “Gerçekleştirilen testler ve tarihleri aşağıdaki gibidir;”

@@ -8,6 +8,14 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.13.0',
+    date: '2026-10-26',
+    title: 'Tek başlık alanı',
+    items: [
+      ['better', 'Fatura kartında proje kodu, müşteri / test adı ve rapor no tek alanda, Excel’deki başlık gibi yazılır: “P26-0001-0001-MÜŞTERİ Test adı (TEST…)”; kaydederken parçalarına ayrılır'],
+    ],
+  },
+  {
     version: '1.12.0',
     date: '2026-10-26',
     title: 'Aramada alt görevler, widget sabitleme',

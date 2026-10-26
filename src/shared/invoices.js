@@ -82,6 +82,22 @@ export function invoiceTitle(invoice) {
   return invoice.ref ? `${head} (${invoice.ref})` : head;
 }
 
+// The card's one heading field back into its parts: the project code at the
+// start, the report no in the closing brackets (it starts with TEST, so
+// "Yağmur Testi (IPX2)" stays a title), the rest is customer and test name.
+export function parseInvoiceTitle(text) {
+  let rest = String(text ?? '').replace(/\s+/g, ' ').trim();
+  let ref = '';
+  const paren = /\((TEST[^()]*)\)\s*$/i.exec(rest);
+  if (paren) {
+    ref = paren[1].trim();
+    rest = rest.slice(0, paren.index).trim();
+  }
+  const code = /^P\d{2}-\d{1,5}-\d{1,5}/i.exec(rest)?.[0] ?? '';
+  if (code) rest = rest.slice(code.length).replace(/^[\s\-–:]+/, '');
+  return { code: code.toUpperCase(), title: rest, ref };
+}
+
 const amountFormat = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const formatAmount = (n) => (n == null ? '' : amountFormat.format(n));

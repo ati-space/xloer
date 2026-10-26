@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dispatch, emptyState, normalizeState } from '../src/shared/store.js';
-import { dateRangeLabel, formatEuro, invoiceCopy, invoiceTitle, lastTestDate, parseAmount, rowDays, shiftLabel, sortInvoices, totalAmount } from '../src/shared/invoices.js';
+import { dateRangeLabel, formatEuro, invoiceCopy, invoiceTitle, lastTestDate, parseAmount, parseInvoiceTitle, rowDays, shiftLabel, sortInvoices, totalAmount } from '../src/shared/invoices.js';
 
 test('days count both ends; shifts are days × 3', () => {
   assert.equal(shiftLabel({ start: '2026-09-15', end: '2026-09-28' }), '14/42');
@@ -155,4 +155,13 @@ test('device merge: rows renamed, list cleaned, later imports follow', async () 
   dispatch(s, { type: 'device/unalias', from: '70kN Sarsıcı' });
   assert.equal(s.deviceAliases.length, 1);
   assert.throws(() => dispatch(s, { type: 'device/merge', from: 'a', to: 'A' }), /iki farklı/);
+});
+
+test('one heading field: code, title and report no in and out', () => {
+  const full = { code: 'P26-0001-0001', title: 'ÖRNEK Titreşim (Kombine) Testi', ref: 'TEST260101ORN01REV0' };
+  assert.deepEqual(parseInvoiceTitle(invoiceTitle(full)), full);
+  assert.deepEqual(parseInvoiceTitle(' p26-12-345 –  ÖRNEK  Test '), { code: 'P26-12-345', title: 'ÖRNEK Test', ref: '' });
+  assert.deepEqual(parseInvoiceTitle('ÖRNEK Yağmur Testi (IPX2)'), { code: '', title: 'ÖRNEK Yağmur Testi (IPX2)', ref: '' }, 'only TEST… in brackets is a report no');
+  assert.deepEqual(parseInvoiceTitle('P26-0001-0001 (TEST1)'), { code: 'P26-0001-0001', title: '', ref: 'TEST1' });
+  assert.deepEqual(parseInvoiceTitle(''), { code: '', title: '', ref: '' });
 });

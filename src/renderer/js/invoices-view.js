@@ -8,7 +8,7 @@ import * as A from './actions.js';
 import { confirmModal, esc, menuAt, modal, toast } from './ui.js';
 import { todayStr } from '../../shared/store.js';
 import { fold } from '../../shared/search.js';
-import { INVOICE_ORDERS, formatAmount, formatEuro, invoiceTitle, parseAmount, shiftLabel, sortInvoices, sortedRows, totalAmount } from '../../shared/invoices.js';
+import { INVOICE_ORDERS, formatAmount, formatEuro, invoiceTitle, parseAmount, parseInvoiceTitle, shiftLabel, sortInvoices, sortedRows, totalAmount } from '../../shared/invoices.js';
 import { readWorkbook } from '../../shared/xlsx.js';
 import { createInvoiceDash } from './invoice-dash.js';
 import { calendarAnchor, closeCalendar, openCalendar, updateCalendar } from './calendar.js';
@@ -151,9 +151,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
       <header class="inv-card-head">
         <label class="inv-pick" title="Seç (Shift ile aralık)"><input type="checkbox" data-pick${on ? ' checked' : ''} aria-label="${esc(`No ${inv.no} seç`)}"></label>
         <label class="inv-no" title="Sıra numarası"><span>No</span><input type="number" min="1" data-f="no" value="${inv.no || ''}"></label>
-        <input class="inv-code" data-f="code" value="${esc(inv.code)}" placeholder="Proje kodu (P26-…)" spellcheck="false" aria-label="Proje kodu">
-        <input class="inv-name" data-f="title" value="${esc(inv.title)}" placeholder="Müşteri ve test adı" spellcheck="false" aria-label="Müşteri ve test adı">
-        <input class="inv-ref" data-f="ref" value="${esc(inv.ref)}" placeholder="Rapor no (TEST…)" spellcheck="false" aria-label="Rapor numarası">
+        <input class="inv-heading" data-f="heading" value="${esc(invoiceTitle(inv))}" placeholder="P26-0001-0001-MÜŞTERİ Test adı (TEST…)" spellcheck="false" aria-label="Proje kodu, müşteri ve test adı, rapor no" title="Excel’deki başlık gibi: proje kodu, müşteri ve test adı, parantez içinde rapor no">
         ${issues.length ? `<button type="button" class="inv-warn" data-i="issues" aria-expanded="${open}" title="Kontrol edilecek ${issues.length} nokta">${icon('alert', 14)}${issues.length}</button>` : ''}
         <button type="button" class="icon-btn" data-i="copy" title="Tabloyu kopyala (e-posta / Word)">${icon('copy')}</button>
         <button type="button" class="icon-btn" data-i="card-menu" title="Diğer">${icon('more')}</button>
@@ -273,7 +271,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     const id = await A.run({ type: 'invoice/create' });
     if (!id) return;
     await A.run({ type: 'invoice/row-add', id, row: { start: todayStr() } });
-    focusAfter = { id, f: 'code' };
+    focusAfter = { id, f: 'heading' };
     if (state.invoices.some((i) => i.id === id)) render(null, { force: true });
   }
 
@@ -332,6 +330,13 @@ export function createInvoicesView(el, { onToggleSidebar }) {
         }
         field.value = formatAmount(amount);
         return A.run({ type: 'invoice/update', id, patch: { amount } });
+      }
+      if (f === 'heading') {
+        // One field, stored as code / title / ref as before.
+        const parts = parseInvoiceTitle(field.value);
+        field.value = invoiceTitle(parts);
+        if (field.value === invoiceTitle(inv)) return;
+        return A.run({ type: 'invoice/update', id, patch: parts });
       }
       return A.run({ type: 'invoice/update', id, patch: { [f]: field.value } });
     }

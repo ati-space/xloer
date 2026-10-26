@@ -1502,20 +1502,9 @@ body.file-over .file-drop {
 .inv-no input::-webkit-inner-spin-button {
   display: none;
 }
-.inv-card .inv-code {
-  width: 150px;
-  color: var(--accent-ink);
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-}
-.inv-card .inv-name {
+.inv-card .inv-heading {
   flex: 1;
   font-weight: 600;
-}
-.inv-card .inv-ref {
-  width: 190px;
-  color: var(--text-2);
-  font-size: 12.5px;
 }
 .inv-table-wrap {
   overflow-x: auto;
