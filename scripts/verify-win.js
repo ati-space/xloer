@@ -4,9 +4,10 @@
 // starts the installed app once and Xloer-Portable twice (first start unpacks,
 // the second runs from the unpacked copy), each in self-test mode
 // (src/main/self-test.js) with an empty data folder. Fails when any start
-// does not work, the portable unpacks again on its second start or does not
-// clear an older build, or a path points to the wrong place. Prints how long
-// each start took, also into the job summary.
+// does not work, the portable unpacks again on its second start, starts
+// clearly slower than the installed app from then on, does not clear an
+// older build, or a path points to the wrong place. Prints how long each
+// start took, also into the job summary.
 // Only on a CI runner: the installer would replace an installed Xloer.
 
 import { execFileSync, spawn } from 'node:child_process';
@@ -81,9 +82,11 @@ async function selfTest(name, exe) {
 console.log(`Kurulum: ${path.basename(setup)} → ${installDir}`);
 execFileSync(setup, ['/S', `/D=${installDir}`], { stdio: 'inherit' });
 const installed = [path.join(installDir, 'Xloer.exe'), path.join(process.env.LOCALAPPDATA, 'Programs', 'Xloer', 'Xloer.exe')].find((f) => fs.existsSync(f));
+let installedWall = null;
 if (!installed) problems.push('Kurulum: Xloer.exe kurulmadı');
 else {
   const r = await selfTest('kurulum', installed);
+  installedWall = r?.wall ?? null;
   if (r) {
     if (!same(r.paths.exe, installed)) problems.push(`kurulum: ${r.paths.exe} üzerinden çalıştı`);
     if (r.paths.portableFile) problems.push('kurulum: kendini portable sanıyor');
@@ -109,6 +112,11 @@ if (fs.existsSync(old)) problems.push('portable: eski sürümün klasörünü si
 const second = await selfTest('portable (ikinci açılış)', portable);
 const after = marker();
 if (unpacked && after && after.time !== unpacked.time) problems.push('portable: ikinci açılışta yeniden açtı');
+// Once unpacked, the portable is the installed app plus a launcher.
+const SLACK = 3000;
+if (second?.wall != null && installedWall != null && second.wall > installedWall + SLACK) {
+  problems.push(`portable: ikinci açılış ${sec(second.wall)} sn, kurulum ${sec(installedWall)} sn; önbellekten açılış kurulumdan ${SLACK / 1000} sn’den fazla yavaş olmamalı`);
+}
 for (const r of [first, second]) {
   if (!r) continue;
   if (!same(r.paths.portableFile, portable)) problems.push(`portable: PORTABLE_EXECUTABLE_FILE = ${r.paths.portableFile}`);

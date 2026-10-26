@@ -14,13 +14,21 @@ Unicode true
 ManifestDPIAware true
 RequestExecutionLevel user
 SilentInstall silent
-; Reading all 100 MB for a checksum on every start would undo the point.
+; Reading all 150 MB for a checksum on every start would undo the point.
 CRCCheck off
-SetCompressor /SOLID lzma
+; zlib: about 40 MB larger than LZMA, but it unpacks some six times faster,
+; which is what the first start of each version waits for.
+SetCompressor /SOLID zlib
 SetDatablockOptimize on
 
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
+
+; Everything is one compressed stream, read from the front. The plugins go
+; first: a start that finds the app already unpacked then never has to
+; decompress the whole app just to reach System.dll.
+ReserveFile /plugin System.dll
+ReserveFile /plugin Banner.dll
 
 !define ROOT "$LOCALAPPDATA\Xloer\portable"
 !define BUILD "${VERSION}-${BUILD_ID}"

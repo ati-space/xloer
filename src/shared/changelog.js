@@ -8,6 +8,16 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.16.1',
+    date: '2026-10-26',
+    title: 'Portable artık her açılışta hızlı',
+    items: [
+      ['fix', 'Portable sürüm açıldıktan sonraki her başlatmada da kurulum sürümü kadar hızlı açılır; 1.16.0’da her açılışta hâlâ tüm uygulamayı açıp bekletiyordu'],
+      ['better', 'Portable sürümün her yeni sürümdeki ilk açılışı da birkaç kat kısaldı (dosya 40 MB kadar büyüdü)'],
+      ['better', 'Yayından önceki Windows denetimi portable sürümün açılış süresini de ölçer; kurulum sürümünden belirgin yavaşsa sürüm yayınlanmaz'],
+    ],
+  },
+  {
     version: '1.16.0',
     date: '2026-10-26',
     title: 'Hızlı portable, dışa açılan panel, etiket renkleri',
