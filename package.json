@@ -4,7 +4,7 @@
   "version": "1.17.1",
   "description": "Xloer: Windows masaüstü için görev, rapor ve fatura takip uygulaması",
   "author": "Mericsdc",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "src/main/main.js",
   "scripts": {
@@ -37,7 +37,9 @@
     "files": [
       "src/**/*",
       "build/icon.png",
-      "package.json"
+      "package.json",
+      "LICENSE",
+      "NOTICE"
     ],
     "win": {
       "icon": "build/icon.png",

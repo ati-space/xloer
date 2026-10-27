@@ -247,3 +247,9 @@ Dosyalar:
   lisans metinleri yanlarında); internetsiz çalışsın diye uygulamaya gömülü.
 - `test/fixtures.js` — testlerin kullandığı gerçek rapor listesi. `src/` dışında
   durduğu için yayınlanan kurulum dosyalarına girmez.
+
+## Lisans
+
+Xloer, [Apache License 2.0](LICENSE) ile lisanslıdır: kullanılabilir, değiştirilebilir
+ve dağıtılabilir; dağıtırken lisans metni ve [NOTICE](NOTICE) dosyası birlikte
+verilir. Uygulamaya gömülü yazı tipleri SIL Open Font License 1.1 altındadır.
