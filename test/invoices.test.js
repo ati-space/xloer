@@ -139,7 +139,8 @@ test('device merge: rows renamed, list cleaned, later imports follow', async () 
   assert.deepEqual(
     similarDevices(s).map((p) => [p.from, p.to]),
     [
-      ['70kN Sarsıcı', '70kN Elektrodinamik Sarsıcı'],
+      ['70kN Elektrodinamik Sarsıcı', 'Sarsıcı'],
+      ['70kN Sarsıcı', 'Sarsıcı'],
       ['Servohidrolik', 'Servo Hidrolik Sarsıcı'],
     ],
   );
@@ -157,17 +158,48 @@ test('device merge: rows renamed, list cleaned, later imports follow', async () 
   assert.throws(() => dispatch(s, { type: 'device/merge', from: 'a', to: 'A' }), /iki farklı/);
 });
 
-test('systems that differ only by size are merged once, under the size-less name', () => {
+test('size variants are suggested, never merged on their own; model numbers are not sizes', async () => {
+  const { similarDevices } = await import('../src/shared/devices.js');
   const s = emptyState();
   const id = dispatch(s, { type: 'invoice/create', code: 'A' });
-  for (const device of ['70kN Sarsıcı', '49kN Sarsıcı', '10kN Sarsıcı', '70kN Sarsıcı', '1000L Kabin', 'Solar Kabin', '50kN Elektrodinamik Sarsıcı', 'Servo Hidrolik Sarsıcı'])
+  for (const device of ['70kN Sarsıcı', '49kN Sarsıcı', '10kN Elektrodinamik Sarsıcı', 'ASLI TH-1728', 'ASLI TH-1300-F', '1000L Kabin'])
     dispatch(s, { type: 'invoice/row-add', id, row: { device, start: '2026-10-01' } });
-  const merged = dispatch(s, { type: 'device/merge-same' });
-  assert.deepEqual(merged, [{ to: 'Sarsıcı', from: ['70kN Sarsıcı', '10kN Sarsıcı', '49kN Sarsıcı', '50kN Elektrodinamik Sarsıcı'], rows: 5 }]);
-  assert.deepEqual(s.invoices[0].rows.map((r) => r.device), ['Sarsıcı', 'Sarsıcı', 'Sarsıcı', 'Sarsıcı', '1000L Kabin', 'Solar Kabin', 'Sarsıcı', 'Servo Hidrolik Sarsıcı']);
-  assert.equal(s.settings.devicesMergedByName, true);
-  assert.ok(s.deviceAliases.some((a) => a.from === '49kN Sarsıcı' && a.to === 'Sarsıcı'), 'Excel names follow');
-  assert.deepEqual(dispatch(s, { type: 'device/merge-same' }), [], 'nothing left to merge');
+  assert.deepEqual(
+    similarDevices(s).map((p) => [p.from, p.to]),
+    [
+      ['10kN Elektrodinamik Sarsıcı', 'Sarsıcı'],
+      ['49kN Sarsıcı', 'Sarsıcı'],
+      ['70kN Sarsıcı', 'Sarsıcı'],
+    ],
+  );
+  assert.deepEqual(s.invoices[0].rows.map((r) => r.device).slice(0, 2), ['70kN Sarsıcı', '49kN Sarsıcı'], 'nothing changed');
+});
+
+test('the wrong 1.18.0 merges are undone from the backup, once; right ones stay', () => {
+  const s = emptyState();
+  const id = dispatch(s, { type: 'invoice/create', code: 'A' });
+  const names = ['ASLI TH-1728', 'ASLI TH-1300-F', 'ASLI TH-1728', '70kN Sarsıcı'];
+  const rowIds = names.map((device) => dispatch(s, { type: 'invoice/row-add', id, row: { device, start: '2026-10-01' } }));
+  const before = { rows: Object.fromEntries(rowIds.map((r, i) => [`${id}:${r}`, names[i]])), devices: [{ name: 'ASLI TH-1728', test: 'İklimlendirme Testi' }] };
+  // What 1.18.0 did:
+  dispatch(s, { type: 'device/merge', from: 'ASLI TH-1728', to: 'ASLI' });
+  dispatch(s, { type: 'device/merge', from: 'ASLI TH-1300-F', to: 'ASLI' });
+  dispatch(s, { type: 'device/merge', from: '70kN Sarsıcı', to: 'Sarsıcı' });
+  const extra = dispatch(s, { type: 'invoice/row-add', id, row: { device: 'ASLI', start: '2026-10-02' } });
+  s.settings.devicesMergedByName = true;
+
+  const r = dispatch(s, { type: 'device/unmerge-wrong', before });
+  assert.deepEqual(r.restored, [
+    { from: 'ASLI TH-1728', to: 'ASLI', rows: 2 },
+    { from: 'ASLI TH-1300-F', to: 'ASLI', rows: 1 },
+  ]);
+  assert.equal(r.unknown, 1, 'the row added after the merge has no earlier name');
+  const inv = s.invoices[0];
+  assert.deepEqual(inv.rows.filter((x) => x.id !== extra).map((x) => x.device), ['ASLI TH-1728', 'ASLI TH-1300-F', 'ASLI TH-1728', 'Sarsıcı']);
+  assert.deepEqual(s.deviceAliases.map((a) => [a.from, a.to]), [['70kN Sarsıcı', 'Sarsıcı']]);
+  assert.ok(s.devices.some((d) => d.name === 'ASLI TH-1728' && d.test === 'İklimlendirme Testi'));
+  assert.equal(s.settings.devicesRepaired, true);
+  assert.deepEqual(dispatch(s, { type: 'device/unmerge-wrong', before }).restored, []);
 });
 
 test('one heading field: code, title and report no in and out', () => {

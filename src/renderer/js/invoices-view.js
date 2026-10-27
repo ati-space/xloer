@@ -14,7 +14,7 @@ import { createInvoiceDash } from './invoice-dash.js';
 import { calendarAnchor, closeCalendar, openCalendar, updateCalendar } from './calendar.js';
 import { formatTrDate, parseTrDate } from '../../shared/dates.js';
 import { invoiceIssues } from '../../shared/invoice-issues.js';
-import { customerOf } from '../../shared/customers.js';
+import { customerKey, customerOf } from '../../shared/customers.js';
 import { deviceNames, similarDevices } from '../../shared/devices.js';
 import { parseInvoiceWorkbook } from '../../shared/invoice-import.js';
 
@@ -46,6 +46,8 @@ export function createInvoicesView(el, { onToggleSidebar }) {
   let deferred = false;
   let focusAfter = null;
   let manageBox = null;
+  // "Aynı test sistemi olabilir" suggestions, counted once per redraw.
+  let suggestions = 0;
   let order = loadOrder();
   // Like the sheet's table per year: show one year's projects, or all.
   let yearFilter = null;
@@ -80,7 +82,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     </header>
     <div class="inv-tools">
       <label class="inv-pick inv-pick-all" title="Görünenlerin hepsini seç"><input type="checkbox" id="inv-pick-all" aria-label="Görünenlerin hepsini seç"></label>
-      <label class="search-box">${icon('search')}<input id="inv-filter" type="search" placeholder="Proje kodu, müşteri, rapor no veya cihaz ara" spellcheck="false" autocomplete="off"></label>
+      <label class="search-box">${icon('search')}<input id="inv-filter" type="search" placeholder="Proje kodu, müşteri, rapor no veya test sistemi ara" spellcheck="false" autocomplete="off"></label>
       <span class="muted small" id="inv-count"></span>
       <button type="button" class="inv-chip" data-i="only-issues" aria-pressed="false" hidden></button>
       <button type="button" class="icon-btn small" data-i="pick-none" title="Seçimi temizle (Esc)" aria-label="Seçimi temizle" hidden>${icon('x', 13)}</button>
@@ -142,7 +144,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     const sheetDays = mine.some((i) => i.key.startsWith('days:')) ? `<small class="inv-sheet" title="Excel’deki Gün / Vardiya">Excel ${r.sheetDays}/${r.sheetDays * 3}</small>` : '';
     return `<tr data-row="${esc(r.id)}"${mine.length ? ` class="warn" title="${esc(mine.map((i) => i.text).join('\n'))}"` : ''}>
       <td><select data-f="test" aria-label="Test" title="${esc(r.test)}">${r.test ? '' : '<option value="" selected>Test seç</option>'}${tests.map((t) => option(t, r.test)).join('')}<option value="${NEW}">＋ Yeni test türü…</option><option value="${MANAGE}">✎ Test türlerini düzenle / sil…</option></select></td>
-      <td><select data-f="device" aria-label="Test sistemi" title="${esc(r.device)}">${r.device ? '' : '<option value="" selected>Cihaz seç</option>'}${devices.map((d) => option(d, r.device)).join('')}<option value="${NEW}">＋ Yeni cihaz…</option><option value="${MANAGE}">✎ Cihazları düzenle / sil…</option></select></td>
+      <td><select data-f="device" aria-label="Test sistemi" title="${esc(r.device)}">${r.device ? '' : '<option value="" selected>Test sistemi seç</option>'}${devices.map((d) => option(d, r.device)).join('')}<option value="${NEW}">＋ Yeni test sistemi…</option>${suggestions ? `<option value="${MANAGE}">⚠ Aynı olabilecek sistemler (${suggestions})…</option>` : ''}<option value="${MANAGE}">✎ Test sistemlerini düzenle / sil…</option></select></td>
       <td class="inv-dates"><input class="inv-date" data-f="start" data-date value="${formatTrDate(r.start)}" placeholder="gg.aa.yyyy" inputmode="numeric" maxlength="10" autocomplete="off" spellcheck="false" aria-label="Başlangıç tarihi"><span>–</span><input class="inv-date" data-f="end" data-date value="${formatTrDate(r.end ?? r.start)}" placeholder="gg.aa.yyyy" inputmode="numeric" maxlength="10" autocomplete="off" spellcheck="false" aria-label="Bitiş tarihi" title="Bitiş tarihi (tek günlük testte başlangıçla aynı)"></td>
       <td class="num inv-shift"><span>${esc(shiftLabel(r)) || '–'}</span>${sheetDays}</td>
       <td class="inv-row-tools"><button type="button" class="icon-btn small" data-i="row-del" title="Satırı sil">${icon('x', 13)}</button></td>
@@ -278,6 +280,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     for (const id of selected) if (!state.invoices.some((i) => i.id === id)) selected.delete(id);
     const shown = sortInvoices(state.invoices.filter(matches), order);
     shownIds = shown.map((i) => i.id);
+    suggestions = similarDevices(state).length;
     renderTotals(shown);
     renderManage();
     el.classList.toggle('tab-dash', tab === 'dash');
@@ -328,12 +331,12 @@ export function createInvoicesView(el, { onToggleSidebar }) {
 
   async function addDevice() {
     const box = document.createElement('div');
-    box.innerHTML = `<label class="field-label">Cihaz adı</label>
+    box.innerHTML = `<label class="field-label">Test sistemi adı</label>
       <input class="input" data-k="name" placeholder="ör. 35kN Sarsıcı" autofocus spellcheck="false">
       <label class="field-label spaced">Genelde yapılan test</label>
       <select class="input" data-k="test">${state.testTypes.map((t) => option(t, '')).join('')}</select>`;
     const r = await modal({
-      title: 'Yeni cihaz',
+      title: 'Yeni test sistemi',
       body: box,
       buttons: [
         { label: 'Vazgeç', value: null },
@@ -390,6 +393,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
         if (field.value === invoiceTitle(inv)) return;
         return A.run({ type: 'invoice/update', id, patch: parts });
       }
+      if (f === 'customer') return changeCustomer(inv, field.value.trim());
       return A.run({ type: 'invoice/update', id, patch: { [f]: field.value } });
     }
     const row = inv.rows.find((r) => r.id === rowId);
@@ -422,6 +426,19 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     field.value = shown(value);
     if (value === (row[f] ?? null)) return;
     return A.run({ type: 'invoice/row-update', id, rowId, patch: { [f]: value } });
+  }
+
+  // Says the name was saved; other projects under the old name can follow.
+  async function changeCustomer(inv, name) {
+    if (name === inv.customer) return;
+    const old = customerKey(customerOf(inv));
+    const others = state.invoices.filter((i) => i.id !== inv.id && customerKey(customerOf(i)) === old);
+    if (!(await A.run({ type: 'invoice/update', id: inv.id, patch: { customer: name } }))) return;
+    if (!name) return toast('Müşteri yine başlıktan okunacak');
+    toast(`Müşteri “${name}” olarak kaydedildi`, {
+      timeout: 9000,
+      action: others.length ? { label: `Aynı müşterili ${others.length} projede de`, run: () => A.run({ type: 'invoice/set-customer', ids: others.map((i) => i.id), customer: name }) } : undefined,
+    });
   }
 
   body.addEventListener('change', (e) => {
@@ -580,7 +597,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     filter = filterInput.value = '';
     body.scrollTop = 0;
     render(null, { force: true });
-    const parts = [r.created && `${r.created} proje eklendi`, r.updated && `${r.updated} proje güncellendi`, year && `${year} yılına`, r.devicesAdded && `${r.devicesAdded} yeni cihaz`].filter(Boolean);
+    const parts = [r.created && `${r.created} proje eklendi`, r.updated && `${r.updated} proje güncellendi`, year && `${year} yılına`, r.devicesAdded && `${r.devicesAdded} yeni test sistemi`].filter(Boolean);
     toast(`${file.name}: ${parts.join(' · ')}`, { timeout: 9000, action: { label: 'Geri al', run: () => A.run({ type: 'invoice/import-undo', ...before }) } });
   }
 
@@ -698,7 +715,8 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     return `${
       pairs.length
         ? `<section class="manage-block manage-suggest">
-        <h3>${icon('alert', 13)} Aynı cihaz olabilir</h3>
+        <h3>${icon('alert', 13)} Aynı test sistemi olabilir</h3>
+        <p class="hint">Sen “Birleştir” demedikçe hiçbiri birleştirilmez. ⇄ hangi adın kalacağını değiştirir.</p>
         ${pairs
           .map(
             (p) => `<div class="manage-row" data-from="${esc(p.from)}" data-to="${esc(p.to)}"><span><span class="m-from">${esc(p.from)}</span> <span class="muted">→</span> <b class="m-to">${esc(p.to)}</b></span>
@@ -710,17 +728,17 @@ export function createInvoicesView(el, { onToggleSidebar }) {
         : ''
     }
       <section class="manage-block">
-        <h3>Cihazlar</h3>
+        <h3>Test sistemleri</h3>
         ${
           names
             .map(
               (d) => `<div class="manage-row"><span>${esc(d.name)}</span><span class="muted small">${[testOf(d.name), d.rows ? `${d.rows} satır` : 'kullanılmıyor'].filter(Boolean).map(esc).join(' · ')}</span>
-                <button type="button" class="link-btn" data-merge="${esc(d.name)}" title="Başka bir cihazla aynıysa birleştir">Birleştir…</button>
+                <button type="button" class="link-btn" data-merge="${esc(d.name)}" title="Başka bir test sistemiyle aynıysa birleştir">Birleştir…</button>
                 ${d.listed ? `<button type="button" class="icon-btn small danger" data-rm-device="${esc(d.name)}" title="Listeden sil" aria-label="${esc(d.name)} sil">${icon('trash', 14)}</button>` : '<span class="manage-gap"></span>'}</div>`,
             )
-            .join('') || '<p class="muted small">Cihaz yok.</p>'
+            .join('') || '<p class="muted small">Test sistemi yok.</p>'
         }
-        <button type="button" class="link-btn" data-add="device">${icon('plus', 14)}Cihaz ekle</button>
+        <button type="button" class="link-btn" data-add="device">${icon('plus', 14)}Test sistemi ekle</button>
       </section>
       ${
         state.deviceAliases.length
@@ -736,7 +754,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
         ${state.testTypes.map((t) => `<div class="manage-row"><span>${esc(t)}</span><button type="button" class="icon-btn small danger" data-rm-test="${esc(t)}" title="Listeden sil" aria-label="${esc(t)} sil">${icon('trash', 14)}</button></div>`).join('') || '<p class="muted small">Test türü yok.</p>'}
         <button type="button" class="link-btn" data-add="test">${icon('plus', 14)}Test türü ekle</button>
       </section>
-      <p class="hint">Silinen cihaz veya test listeden çıkar; onu kullanan satırlarda olduğu gibi kalır.</p>`;
+      <p class="hint">Silinen test sistemi veya test türü listeden çıkar; onu kullanan satırlarda olduğu gibi kalır.</p>`;
   }
 
   async function mergeDevices(from, to) {
@@ -745,36 +763,25 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     if (r) toast(`“${from}” → “${to}” · ${r.rows} satır`, { timeout: 9000, action: { label: 'Geri al', run: () => A.run({ type: 'invoice/import-undo', ...snapshot }) } });
   }
 
-  // Once: systems that differ only by size become one ("70kN Sarsıcı",
-  // "10kN Sarsıcı" → "Sarsıcı"), and the user is told which.
-  async function mergeSameDevices(current) {
-    const snapshot = structuredClone({ invoices: current.invoices, devices: current.devices, testTypes: current.testTypes, deviceAliases: current.deviceAliases });
-    const merged = await A.run({ type: 'device/merge-same' });
-    if (!merged?.length) return;
+  // 1.19.0's repair of the 1.18.0 merges (main.js repairDeviceMerge).
+  function showUnmerge(n) {
     const box = document.createElement('div');
-    box.innerHTML = `<p class="modal-text">Yalnız boyutu farklı olan test sistemleri tek ad altında birleştirildi:</p>
-      <ul class="merged-list">${merged.map((g) => `<li><span>${g.from.map(esc).join(', ')}</span> <span class="muted">→</span> <b>${esc(g.to)}</b> <span class="muted small">${g.rows} satır</span></li>`).join('')}</ul>
-      <p class="hint">Excel’den bu adlar gelince de birleşik ad yazılır. Ayırmak istersen: ⋯ → Cihazlar ve test türleri → Birleştirilen adlar.</p>`;
-    const undo = await modal({
-      title: 'Test sistemleri birleştirildi',
-      body: box,
-      buttons: [
-        { label: 'Geri al', value: true },
-        { label: 'Tamam', primary: true, value: false },
-      ],
-    });
-    if (undo) A.run({ type: 'invoice/import-undo', ...snapshot });
+    box.innerHTML = `<p class="modal-text">1.18.0 bazı test sistemlerini yanlışlıkla birleştirmişti; şunlar eski adlarına döndü:</p>
+      <ul class="merged-list">${n.restored.map((x) => `<li><b>${esc(x.from)}</b> <span class="muted small">${x.rows} satır (${esc(x.to)} yazıyordu)</span></li>`).join('')}</ul>
+      ${n.unknown ? `<p class="hint">${n.unknown} satırın eski adı yedekte yoktu; “${esc(n.restored[0].to)}” olarak kaldı. Excel’i yeniden içe aktarırsan Excel’deki adı alır.</p>` : ''}
+      <p class="hint">Boyutu farklı sistemler artık kendiliğinden birleştirilmez; “Aynı test sistemi olabilir” önerisi olarak sorulur.</p>`;
+    return modal({ title: 'Test sistemi adları düzeltildi', body: box, buttons: [{ label: 'Tamam', primary: true, value: true }] });
   }
 
   async function mergeDialog(from) {
     const others = deviceNames(state).filter((d) => fold(d.name) !== fold(from));
     const rows = deviceNames(state).find((d) => fold(d.name) === fold(from))?.rows ?? 0;
     const box = document.createElement('div');
-    box.innerHTML = `<p class="modal-text">“${esc(from)}” hangi cihazla aynı?</p>
+    box.innerHTML = `<p class="modal-text">“${esc(from)}” hangi test sistemiyle aynı?</p>
       <select class="input" data-k="to">${others.map((d) => `<option value="${esc(d.name)}">${esc(d.name)}${d.rows ? ` (${d.rows} satır)` : ''}</option>`).join('')}</select>
       <p class="hint">${rows} satır seçilen ada geçer; Excel’den “${esc(from)}” gelince de seçilen ad yazılır.</p>`;
     const to = await modal({
-      title: 'Cihazı birleştir',
+      title: 'Test sistemini birleştir',
       body: box,
       buttons: [
         { label: 'Vazgeç', value: null },
@@ -798,7 +805,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
   function openManage() {
     const box = Object.assign(document.createElement('div'), { className: 'manage' });
     modal({
-      title: 'Cihazlar ve test türleri',
+      title: 'Test sistemleri ve test türleri',
       body: box,
       className: 'wide',
       onOpen(m) {
@@ -838,7 +845,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     else if (b.dataset.i === 'menu')
       menuAt(b, [
         { label: 'Excel’den içe aktar…', icon: 'download', action: pickFile },
-        { label: 'Cihazlar ve test türleri…', icon: 'settings', action: openManage, hint: similarDevices(state).length ? `${similarDevices(state).length} öneri` : undefined },
+        { label: 'Test sistemleri ve test türleri…', icon: 'settings', action: openManage, hint: similarDevices(state).length ? `${similarDevices(state).length} öneri` : undefined },
         'sep',
         { label: 'Hepsini kaldır…', icon: 'trash', danger: true, disabled: !state.invoices.length, action: () => removeCards(state.invoices) },
       ]);
@@ -862,7 +869,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
   return {
     render,
     newProject,
-    mergeSameDevices,
+    showUnmerge,
     importFile,
     // Opens the screen filtered to one project code.
     showCode: (code) => {

@@ -162,6 +162,12 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
   Bölümde `+` ile ekleyip `Enter`’a basınca bir sonraki satır açılır.
 - Pencereyi kapatınca sistem tepsisinde çalışmaya devam eder (Ayarlar’dan kapatılabilir).
 - Ayarlar → “Windows açılışında başlat”: oturum açılınca yalnızca widget gelir.
+- **Geri bildirim:** soldaki balon düğmesi (ya da Ayarlar’ın altı): hata, öneri veya
+  soru yazılır; GitHub’da doldurulmuş bir kayıt açılır (GitHub hesabı gerekir).
+- **Test sistemleri:** Faturalar’da Test sistemi listesinin sonundaki “düzenle / sil…”
+  (ya da ⋯ → Test sistemleri ve test türleri). Aynı olabilecek adlar (ör. yalnız boyutu
+  farklı “70kN Sarsıcı” / “10kN Sarsıcı”) öneri olarak gelir; sen birleştirmedikçe
+  hiçbiri birleşmez.
 
 ## Güncellemeler
 
@@ -170,6 +176,11 @@ Kurulu Xloer, açılıştan kısa süre sonra ve 6 saatte bir bu deponun
 varsa sol alttaki güncelleme butonunda bir nokta belirir, widget’ta “Güncelle”
 düğmesi çıkar. **Güncelle** indirir, **Yeniden başlat ve kur** kurar; görevler ve
 ayarlar korunur.
+
+**Eski bir sürüme dönmek:** Güncellemeler → “Eski bir sürüme dön” → sürümü seç. O
+sürüm indirilip kurulur; öncesinde verilerin bir kopyası `backups\` klasörüne alınır.
+Eski sürüm sonra gelen özellikleri (ör. saatli tarih) bilmez; gerekirse Ayarlar →
+Yedekten geri yükle. Taşınabilir sürümde o sürümün indirme sayfası açılır.
 
 ### Yeni sürüm yayınlamak
 

@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('xloer', {
   importJson: () => ipcRenderer.invoke('data:import-json'),
   openDataDir: () => ipcRenderer.invoke('data:open-dir'),
   appInfo: () => ipcRenderer.invoke('app:info'),
+  notices: () => ipcRenderer.invoke('app:notices'),
   copyRich: (content) => ipcRenderer.invoke('clipboard:write', content),
   // Room for the task panel: the main window grows and shrinks by it.
   win: {
@@ -32,6 +33,8 @@ contextBridge.exposeInMainWorld('xloer', {
   update: {
     get: () => ipcRenderer.invoke('update:get'),
     check: () => ipcRenderer.invoke('update:check'),
+    versions: () => ipcRenderer.invoke('update:versions'),
+    installVersion: (version) => ipcRenderer.invoke('update:install-version', version),
     download: () => ipcRenderer.invoke('update:download'),
     install: () => ipcRenderer.invoke('update:install'),
     openPage: () => ipcRenderer.invoke('update:open-page'),

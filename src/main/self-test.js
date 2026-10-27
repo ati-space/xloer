@@ -1,6 +1,7 @@
 // XLOER_SELF_TEST=<file.json>: the app starts as usual, checks that it really
 // works (the main window and its page, the styles and fonts, saving to the
-// data file, the widget, the paths it runs from, the updater), writes what it
+// data file, typing a customer on an invoice card, the widget, the paths it
+// runs from, the updater), writes what it
 // found to that file and quits. It never touches the real data: main.js gives
 // it an empty data folder unless XLOER_DATA_DIR names one.
 // scripts/verify-win.js runs the built installer and the portable exe this
@@ -10,6 +11,7 @@ import { app } from 'electron';
 import fs from 'node:fs';
 
 const TIMEOUT = 60 * 1000;
+const CUSTOMER = 'ÖZ TEST MÜŞTERİ';
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function until(what, test, ms = 20 * 1000) {
@@ -82,7 +84,7 @@ export async function runSelfTest(file, ctx) {
     if (reason) errors.push(reason);
     const c = report.checks;
     report.ok =
-      !errors.length && c.main?.rows > 0 && c.main.fonts.includes('Space Grotesk') && c.saved === true && c.widget?.rows > 0 && !!c.updater;
+      !errors.length && c.main?.rows > 0 && c.main.fonts.includes('Space Grotesk') && c.saved === true && c.customer === CUSTOMER && c.widget?.rows > 0 && !!c.updater;
     report.times.total = t();
     ctx.storage.flush();
     fs.writeFileSync(file, JSON.stringify(report, null, 2));
@@ -108,6 +110,22 @@ export async function runSelfTest(file, ctx) {
     ctx.apply({ type: 'task/create', listId, title });
     ctx.storage.flush();
     report.checks.saved = fs.readFileSync(ctx.storage.file, 'utf8').includes(title);
+
+    // A customer typed on an invoice card (with keys, as a person would) is saved.
+    const invoice = ctx.apply({ type: 'invoice/create', code: 'P26-0000-0000', title: 'ÖZTEST Kontrol' });
+    const js = (code) => win.webContents.executeJavaScript(code);
+    await js(`document.querySelector('[data-rail="invoices"]').click(); document.querySelector('[data-tab="cards"]')?.click();`);
+    const field = `document.querySelector('[data-id="${invoice}"] [data-f="customer"]')`;
+    await until('fatura kartı', () => js(`!!${field}`));
+    await js(`(() => { const f = ${field}; f.scrollIntoView({ block: 'center' }); f.focus(); f.select(); })()`);
+    win.webContents.insertText(CUSTOMER);
+    await until('müşteri yazımı', () => js(`${field}.value === ${JSON.stringify(CUSTOMER)}`), 5000);
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Return' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' });
+    const customer = () => ctx.state().invoices.find((i) => i.id === invoice)?.customer;
+    await until('müşteri kaydı', () => customer() === CUSTOMER, 5000).catch(fail);
+    report.checks.customer = customer();
+    await js(`document.querySelector('[data-rail="tasks"]').click()`);
 
     ctx.apply({ type: 'settings/update', patch: { widget: { visible: true } } });
     const widget = await until('widget', () => ctx.widget());

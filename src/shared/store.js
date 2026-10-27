@@ -6,7 +6,7 @@
 import { assignCustomers } from './customers.js';
 import { DEFAULT_PALETTE, PALETTES } from './themes.js';
 import { DEFAULT_DEVICES, DEFAULT_TEST_TYPES } from './invoices.js';
-import { sameBaseDevices } from './devices.js';
+import { wrongMerges } from './devices.js';
 
 export const SCHEMA_VERSION = 1;
 export const INBOX_ID = 'inbox';
@@ -37,8 +37,9 @@ export function defaultSettings() {
     startWithWindows: false,
     autoUpdate: true,
     trayHintShown: false,
-    // Test systems that differ only by size have been merged once (device/merge-same).
+    // 1.18.0 merged test systems once; 1.19.0 undoes its wrong merges once.
     devicesMergedByName: false,
+    devicesRepaired: false,
     widget: {
       visible: true,
       listId: null,
@@ -116,6 +117,7 @@ function normalizeSettings(raw = {}) {
     autoUpdate: typeof raw.autoUpdate === 'boolean' ? raw.autoUpdate : d.autoUpdate,
     trayHintShown: !!raw.trayHintShown,
     devicesMergedByName: !!raw.devicesMergedByName,
+    devicesRepaired: !!raw.devicesRepaired,
     widget: {
       visible: typeof w.visible === 'boolean' ? w.visible : d.widget.visible,
       listId: typeof w.listId === 'string' ? w.listId : null,
@@ -879,6 +881,12 @@ const handlers = {
     inv.updatedAt = Date.now();
   },
 
+  // One customer name on several projects.
+  'invoice/set-customer'(s, { ids = [], customer = '' }) {
+    const name = String(customer).trim();
+    for (const inv of s.invoices) if (ids.includes(inv.id)) inv.customer = name;
+  },
+
   // Puts projects under a year (null: the year of their last test again).
   'invoice/set-year'(s, { ids = [], year = null }) {
     const value = normalizeInvoice({ id: 'x', year }).year;
@@ -1031,18 +1039,42 @@ const handlers = {
     return { rows };
   },
 
-  // Test systems that differ only by size ("70kN Sarsıcı", "10kN Sarsıcı")
-  // become one ("Sarsıcı"): on the cards, in the list, and for later Excel
-  // imports. Returns what was merged: [{ to, from, rows }].
-  'device/merge-same'(s) {
-    const merged = [];
-    for (const g of sameBaseDevices(s)) {
-      let rows = 0;
-      for (const from of g.from) rows += handlers['device/merge'](s, { from, to: g.to }).rows;
-      merged.push({ ...g, rows });
+  // Undoes the merges 1.18.0 made by mistake (devices.js wrongMerges): each
+  // row gets back the name it had in `before` (rows: {"invoiceId:rowId":
+  // name}, devices: the list then, both from the newest backup made before
+  // 1.18.0) and later Excel imports keep the names apart. Runs once.
+  // Returns [{ from, to, rows }] and how many merged rows had no earlier name.
+  'device/unmerge-wrong'(s, { before = null } = {}) {
+    s.settings.devicesRepaired = true;
+    const wrong = wrongMerges(s);
+    if (!wrong.length) return { restored: [], unknown: 0 };
+    const restored = wrong.map((a) => ({ from: a.from, to: a.to, rows: 0 }));
+    const targets = new Set(wrong.map((a) => foldName(a.to)));
+    let unknown = 0;
+    for (const inv of s.invoices) {
+      for (const r of inv.rows) {
+        if (!r.device || !targets.has(foldName(r.device))) continue;
+        const was = before?.rows?.[`${inv.id}:${r.id}`];
+        const hit = was && restored.find((x) => foldName(x.from) === foldName(was) && foldName(x.to) === foldName(r.device));
+        if (hit) {
+          r.device = hit.from;
+          hit.rows++;
+        } else if (foldName(was ?? '') !== foldName(r.device)) unknown++;
+      }
     }
-    s.settings.devicesMergedByName = true;
-    return merged;
+    const fromNames = new Set(wrong.map((a) => foldName(a.from)));
+    s.deviceAliases = s.deviceAliases.filter((a) => !fromNames.has(foldName(a.from)));
+    for (const x of restored) {
+      const old = before?.devices?.find((d) => foldName(d.name) === foldName(x.from));
+      if ((old || x.rows) && !findNamed(s.devices.map((d) => d.name), x.from)) s.devices.push({ name: x.from, test: old?.test ?? '' });
+    }
+    // A name only the merge made ("ASLI") goes once nothing uses it.
+    for (const t of targets) {
+      const used = s.invoices.some((i) => i.rows.some((r) => foldName(r.device) === t)) || s.deviceAliases.some((a) => foldName(a.to) === t);
+      const listedBefore = before?.devices?.some((d) => foldName(d.name) === t);
+      if (!used && !listedBefore) s.devices = s.devices.filter((d) => foldName(d.name) !== t);
+    }
+    return { restored, unknown };
   },
 
   'device/unalias'(s, { from }) {

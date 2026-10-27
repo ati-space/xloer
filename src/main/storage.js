@@ -99,6 +99,19 @@ export function createStorage(dir) {
       this.flush();
     },
 
+    // Every backup (daily and one-off), newest first.
+    backupFiles() {
+      try {
+        return fs
+          .readdirSync(backupDir)
+          .filter((n) => n.endsWith('.json'))
+          .map((n) => path.join(backupDir, n))
+          .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+      } catch {
+        return [];
+      }
+    },
+
     // A one-off copy before an import or restore replaces data.
     snapshot(state, label) {
       writeAtomic(path.join(backupDir, `${label}-${Date.now()}.json`), JSON.stringify(state));

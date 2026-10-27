@@ -13,19 +13,23 @@ const similarKey = (name) =>
     .filter((w) => w && !GENERIC.has(w))
     .join('');
 
-// A name without its size: words with a digit go ("70kN Sarsıcı" → "Sarsıcı"),
-// and so does "Elektrodinamik", which every such shaker is.
+// A size: a number with an optional unit ("70kN", "1000L", "1m3"). Model
+// numbers ("TH-1728", "TH-1300-F") are not sizes; they tell systems apart.
+const isSize = (w) => /^[+-]?\d+(?:[.,]\d+)?(?:kn|n|kg|t|ton|l|lt|m3|kw|w|°c|mm|cm|m)?$/.test(w.toLocaleLowerCase('tr'));
+
+// A name without its size, and without "Elektrodinamik", which every such
+// shaker is: "70kN Elektrodinamik Sarsıcı" → "Sarsıcı".
 export function baseDeviceName(name) {
   return String(name ?? '')
     .trim()
     .split(/\s+/)
-    .filter((w) => w && !/\d/.test(w) && fold(w) !== 'elektrodinamik')
+    .filter((w) => w && !isSize(w) && fold(w) !== 'elektrodinamik')
     .join(' ');
 }
 
-// Systems that differ only by size, at least two of them: [{ to, from: [names] }].
-// "to" is the size-less name, as one of them already writes it if any does.
-export function sameBaseDevices(state) {
+// Systems that differ only by size, at least two names: [{ to, from: [names] }],
+// "to" being the size-less name (as one of them writes it, if any does).
+export function sizeVariants(state) {
   const groups = new Map();
   for (const d of deviceNames(state)) {
     const base = baseDeviceName(d.name);
@@ -42,6 +46,18 @@ export function sameBaseDevices(state) {
     });
 }
 
+// 1.18.0 merged once, by dropping every word with a digit in it, so model
+// numbers went too ("ASLI TH-1728" → "ASLI"). Those merges: aliases that the
+// 1.18.0 rule makes but the size rule does not.
+const rule118 = (name) =>
+  String(name ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w && !/\d/.test(w) && fold(w) !== 'elektrodinamik')
+    .join(' ');
+export const wrongMerges = (state) =>
+  state.deviceAliases.filter((a) => fold(rule118(a.from)) === fold(a.to) && fold(baseDeviceName(a.from)) !== fold(a.to));
+
 // Every name in the device list or on a row, with how many rows use it.
 export function deviceNames(state) {
   const byKey = new Map();
@@ -57,9 +73,25 @@ export function deviceNames(state) {
   return [...byKey.values()].sort((a, b) => b.rows - a.rows || a.name.localeCompare(b.name, 'tr'));
 }
 
-// Suggested merges: names that only differ by generic words or punctuation.
-// The name kept is a default device's, else the most used one.
+// Suggested merges ("Aynı test sistemi olabilir"); nothing is merged until
+// the user says so. Names that differ only by size go under the size-less
+// name; names that differ by generic words or punctuation go under a
+// default system's name, else the most used one.
 export function similarDevices(state) {
+  const pairs = [];
+  const seen = new Set();
+  const push = (p) => {
+    if (seen.has(fold(p.from))) return;
+    seen.add(fold(p.from));
+    pairs.push(p);
+  };
+  const rows = new Map(deviceNames(state).map((d) => [fold(d.name), d.rows]));
+  for (const g of sizeVariants(state)) for (const from of g.from) push({ from, to: g.to, rows: rows.get(fold(from)) ?? 0 });
+  for (const p of genericPairs(state)) push(p);
+  return pairs;
+}
+
+function genericPairs(state) {
   const groups = new Map();
   for (const d of deviceNames(state)) {
     const key = similarKey(d.name);

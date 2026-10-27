@@ -1980,3 +1980,36 @@ body.file-over .file-drop {
   flex: 1;
 }
 
+
+/* The feedback form (feedback.js). */
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.feedback textarea {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+  font: inherit;
+  line-height: 1.45;
+}
+
+/* Updates: the list of older versions under the update panel. */
+.update-older {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.update-older summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+.older-list {
+  max-height: 260px;
+  margin-top: 8px;
+  overflow-y: auto;
+}

@@ -14,6 +14,8 @@ import { PRIORITY_LABELS, PRIORITY_COLORS, applyTheme, confirmModal, dueLabel, e
 import { INBOX_ID, MAX_DEPTH, ancestors, buildIndex, counts, depthOf, findTag, getList, subtreeHeight, todayStr } from '../../shared/store.js';
 import { fold } from '../../shared/search.js';
 import { openStagesDialog, renderStagesDialog } from './stages-dialog.js';
+import { openFeedback } from './feedback.js';
+import { CHANGELOG } from '../../shared/changelog.js';
 import { buildCompletedRows, buildDueRows, buildListRows, buildSearchRows, buildStageRows, buildTagRows, buildTrashRows } from '../../shared/tree-rows.js';
 import { dateRangeLabel, formatEuro, formatEuroShort, shiftLabel, sortedRows, totalAmount } from '../../shared/invoices.js';
 
@@ -878,6 +880,8 @@ els.rail.addEventListener('click', (e) => {
       return A.run({ type: 'settings/update', patch: { widget: { visible: !state.settings.widget.visible } } });
     case 'changelog':
       return showChangelog();
+    case 'feedback':
+      return openFeedback({ version: appVersion, platform: platformName() });
     case 'update':
       return openUpdateDialog();
     case 'settings':
@@ -918,7 +922,7 @@ function updatePanelHtml() {
       head = 'Güncellemeler denetleniyor…';
       break;
     case 'available':
-      head = `Yeni sürüm var: <b>v${esc(u.version)}</b>`;
+      head = u.rollback ? `Eski sürüm: <b>v${esc(u.version)}</b>` : `Yeni sürüm var: <b>v${esc(u.version)}</b>`;
       if (u.notes) body = `<div class="update-notes">${esc(u.notes)}</div>`;
       if (u.portable) body += '<p class="hint">Taşınabilir sürüm kendini güncelleyemez: yeni exe’yi indirip eskisinin yerine koy. Verilerin korunur.</p>';
       actions = u.portable ? button('page', 'İndirme sayfasını aç') : button('download', 'Güncelle');
@@ -929,7 +933,9 @@ function updatePanelHtml() {
       break;
     case 'downloaded':
       head = `v${esc(u.version)} indirildi.`;
-      body = '<p class="hint">Xloer kapanır, yeni sürüm kurulur ve kendiliğinden yeniden açılır. Görevlerin ve ayarların korunur.</p>';
+      body = u.rollback
+        ? '<p class="hint">Xloer kapanır, bu eski sürüm kurulur ve kendiliğinden yeniden açılır. Verilerinin bir kopyası yedekler klasöründe.</p>'
+        : '<p class="hint">Xloer kapanır, yeni sürüm kurulur ve kendiliğinden yeniden açılır. Görevlerin ve ayarların korunur.</p>';
       actions = button('install', 'Yeniden başlat ve kur');
       break;
     case 'error':
@@ -953,15 +959,60 @@ function renderUpdatePanel() {
   if (el) el.innerHTML = updatePanelHtml();
 }
 
+// "Eski bir sürüme dön": every published version, with its changelog title.
+const newer = (a, b) => {
+  const [x, y] = [a, b].map((v) => v.split('.').map(Number));
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
+  return false;
+};
+
+async function showOlderVersions(box) {
+  const list = box.querySelector('.older-list');
+  list.innerHTML = '<p class="hint">Sürümler alınıyor…</p>';
+  const r = await api.update.versions();
+  if (!r?.ok) {
+    list.innerHTML = `<p class="update-error">${esc(r?.error ?? 'Sürümler alınamadı.')}</p>`;
+    return;
+  }
+  const current = update.current ?? appVersion;
+  list.innerHTML = r.versions
+    .map((v) => {
+      const title = CHANGELOG.find((c) => c.version === v.version)?.title ?? '';
+      const here = v.version === current;
+      const can = v.installable && newer(current, v.version);
+      return `<div class="manage-row"><span><b>v${esc(v.version)}</b> <span class="muted small">${esc(v.date ? formatTrDate(v.date) : '')}${title ? ` · ${esc(title)}` : ''}</span></span>
+        ${here ? '<span class="muted small">yüklü</span>' : can ? `<button type="button" class="link-btn" data-older="${esc(v.version)}">Bu sürüme dön</button>` : '<span class="manage-gap"></span>'}</div>`;
+    })
+    .join('');
+}
+
+async function goBackTo(version) {
+  const ok = await confirmModal({
+    title: `v${version} kurulsun mu?`,
+    message: `Xloer v${version} indirilip bu sürümün yerine kurulur${update.portable ? ' (taşınabilir sürümde indirme sayfası açılır)' : ''}. Verilerin yerinde kalır ve önce bir kopyası yedekler klasörüne alınır. Eski sürüm, sonra gelen özellikleri bilmez: örneğin saatli tarihler o sürümde kaydedilince kaybolabilir; gerekirse Ayarlar → Yedekten geri yükle. Otomatik denetim açıksa eski sürüm yeni sürümü yine haber verir.`,
+    okLabel: `v${version} sürümüne dön`,
+    danger: true,
+  });
+  if (ok) api.update.installVersion(version);
+}
+
 function openUpdateDialog() {
   if (updateBox) return;
+  const body = document.createElement('div');
+  body.innerHTML = `<div class="update-panel"></div>
+    <details class="update-older"><summary>Eski bir sürüme dön</summary><div class="older-list"></div></details>`;
   modal({
     title: 'Güncellemeler',
-    body: Object.assign(document.createElement('div'), { className: 'update-panel' }),
+    body,
     onOpen(box) {
       updateBox = box;
       renderUpdatePanel();
+      box.querySelector('.update-older').addEventListener('toggle', (e) => {
+        if (e.target.open) showOlderVersions(box);
+      });
       box.addEventListener('click', (e) => {
+        const older = e.target.closest('[data-older]')?.dataset.older;
+        if (older) return goBackTo(older);
         const act = e.target.closest('button[data-u]')?.dataset.u;
         if (act === 'check') api.update.check();
         else if (act === 'download') api.update.download();
@@ -986,6 +1037,8 @@ function onNavigate(target) {
 }
 
 // ---------------------------------------------------------------- settings
+
+const platformName = () => (api.platform === 'win32' ? 'Windows' : api.platform === 'darwin' ? 'macOS' : api.platform);
 
 async function openSettings() {
   const info = await api.appInfo();
@@ -1039,7 +1092,7 @@ async function openSettings() {
       <p class="hint">Başka bir görev uygulamasından taşımak için oradan aldığın .csv yedeğini seç. Listeler, bölümler, alt görevler, tarihler ve etiketler aktarılır; zaten olan görevler ikinci kez eklenmez.</p>
       <p class="hint mono" title="Veri dosyası">${esc(info.dataFile)}</p>
     </section>
-    <p class="hint settings-foot">Xloer ${esc(info.version)} · <button type="button" class="link-btn" data-data="changelog">Yenilikler</button></p>`;
+    <p class="hint settings-foot">Xloer ${esc(info.version)} · <button type="button" class="link-btn" data-data="changelog">Yenilikler</button> · <button type="button" class="link-btn" data-data="feedback">Geri bildirim</button></p>`;
   modal({
     title: 'Ayarlar',
     body,
@@ -1058,6 +1111,7 @@ async function openSettings() {
         }
         const data = e.target.closest('[data-data]')?.dataset.data;
         if (data === 'changelog') return showChangelog();
+        if (data === 'feedback') return openFeedback({ version: appVersion, platform: platformName() });
         if (data === 'csv') {
           const r = await api.importCsv();
           if (r.canceled) return;
@@ -1342,7 +1396,7 @@ addEventListener('keydown', (e) => {
 appVersion = (await api.appInfo()).version;
 const first = await api.getState();
 setState(first.state);
-if (!first.state.settings.devicesMergedByName) invoices.mergeSameDevices(first.state);
+for (const n of (await api.notices?.()) ?? []) if (n.type === 'unmerge') invoices.showUnmerge(n);
 api.onState((payload) => setState(payload.state));
 setUpdate(await api.update.get());
 api.update.onState(setUpdate);

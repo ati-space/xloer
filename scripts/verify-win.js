@@ -74,6 +74,7 @@ async function selfTest(name, exe) {
     c.main ? `${c.main.rows} satır, ${c.main.size.join('×')}` : '—',
     c.widget ? `${c.widget.rows} satır` : '—',
     c.saved ? 'evet' : 'HAYIR',
+    c.customer ? 'evet' : 'HAYIR',
     c.updater ? `${c.updater.status}${c.updater.error ? ` (${c.updater.error})` : ''}` : '—',
   ]);
   return report;
@@ -126,8 +127,8 @@ for (const r of [first, second]) {
 }
 
 const table = [
-  '| Açılış | Satırlar görünene kadar (sn) | Ana pencere | Widget | Veri kaydı | Güncelleme denetimi |',
-  '|---|---|---|---|---|---|',
+  '| Açılış | Satırlar görünene kadar (sn) | Ana pencere | Widget | Veri kaydı | Müşteri yazımı | Güncelleme denetimi |',
+  '|---|---|---|---|---|---|---|',
   ...rows.map((r) => `| ${r.join(' | ')} |`),
 ].join('\n');
 const verdict = problems.length ? `✗ ${problems.length} sorun:\n${problems.map((p) => `- ${p}`).join('\n')}` : '✓ Kurulum ve portable sürüm çalışıyor.';

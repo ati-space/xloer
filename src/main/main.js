@@ -57,6 +57,7 @@ function start() {
     state = seedState();
     storage.saveNow(state);
   }
+  if (!state.settings.devicesRepaired) repairDeviceMerge();
   registerIpc();
   nativeTheme.themeSource = state.settings.theme;
   nativeTheme.on('updated', updateThemeColors);
@@ -91,12 +92,41 @@ async function startRest() {
       quitting = true;
       storage.flush();
     },
+    // An older version may not know newer fields; a copy keeps them.
+    beforeRollback: (version) => storage.snapshot(state, `surum-donusu-oncesi-v${version}`),
   });
   updater.setAutomatic(state.settings.autoUpdate);
   updateTrayMenu();
   sendAll('update:state', updater.get());
   checkReminders();
   setInterval(checkReminders, REMIND_EVERY);
+}
+
+// ---------------------------------------------------------------- notices
+
+// Things to tell the main window once it is up (app:notices).
+const notices = [];
+
+// 1.18.0 merged some test systems by mistake ("ASLI TH-1728" → "ASLI").
+// Once: every row gets its name back from the newest backup made before
+// that version, and the window lists what came back.
+function repairDeviceMerge() {
+  let before = null;
+  if (state.settings.devicesMergedByName) {
+    for (const file of storage.backupFiles()) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+        if (raw?.settings?.devicesMergedByName) continue;
+        before = { rows: {}, devices: Array.isArray(raw.devices) ? raw.devices : [] };
+        for (const inv of raw.invoices ?? []) for (const r of inv.rows ?? []) before.rows[`${inv.id}:${r.id}`] = r.device;
+        break;
+      } catch {
+        // An unreadable backup: try the next one.
+      }
+    }
+  }
+  const result = apply({ type: 'device/unmerge-wrong', before });
+  if (result.restored.length) notices.push({ type: 'unmerge', ...result, fromBackup: !!before });
 }
 
 // ---------------------------------------------------------------- reminders
@@ -510,6 +540,14 @@ function registerIpc() {
   // The updater loads a moment after start; until then it is "idle".
   ipcMain.handle('update:get', () => updater?.get() ?? { status: 'idle' });
   ipcMain.handle('update:check', () => updater?.check());
+  ipcMain.handle('update:versions', async () => {
+    try {
+      return { ok: true, versions: (await updater?.versions()) ?? [] };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+  ipcMain.handle('update:install-version', (_e, version) => updater?.installVersion(version));
   ipcMain.handle('update:download', () => updater?.download());
   ipcMain.handle('update:install', () => updater?.install());
   ipcMain.handle('update:open-page', () => updater?.openPage());
@@ -519,6 +557,8 @@ function registerIpc() {
   ipcMain.handle('win:state', (e) => (fromMain(e) ? winState() : null));
   ipcMain.handle('win:grow', (e, by) => (fromMain(e) ? growWindow(Number(by)) : 0));
   ipcMain.handle('win:shrink', (e, by) => (fromMain(e) ? shrinkWindow(Number(by)) : 0));
+
+  ipcMain.handle('app:notices', () => notices.splice(0));
 
   ipcMain.handle('app:info', () => ({
     version: app.getVersion(),

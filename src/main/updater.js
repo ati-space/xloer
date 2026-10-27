@@ -2,13 +2,15 @@
 // (configured under build.publish in package.json). An installed copy
 // downloads the new installer and swaps itself on restart; the portable exe
 // can only be told about a new version and sent to the download page.
+// An older version can be put back the same way (installVersion).
 
-import { app, shell } from 'electron';
+import { app, net, shell } from 'electron';
 import updaterPackage from 'electron-updater';
 
 const { autoUpdater } = updaterPackage;
 
-export const RELEASES_URL = 'https://github.com/ati-space/xloer/releases/latest';
+const REPO = { owner: 'ati-space', repo: 'xloer' };
+export const RELEASES_URL = `https://github.com/${REPO.owner}/${REPO.repo}/releases/latest`;
 const FIRST_CHECK_DELAY = 15 * 1000;
 const CHECK_EVERY = 6 * 60 * 60 * 1000;
 
@@ -40,8 +42,9 @@ function friendlyError(err) {
 }
 
 // broadcast(state) reaches every window; beforeInstall() runs just before
-// the app quits to let the installer replace it.
-export function createUpdater({ broadcast, beforeInstall }) {
+// the app quits to let the installer replace it; beforeRollback(version)
+// before an older version is fetched (main.js backs the data up then).
+export function createUpdater({ broadcast, beforeInstall, beforeRollback }) {
   const portable = !!process.env.PORTABLE_EXECUTABLE_FILE;
   const supported = app.isPackaged && process.platform === 'win32';
   let state = {
@@ -53,6 +56,8 @@ export function createUpdater({ broadcast, beforeInstall }) {
     error: null,
     portable,
     checkedAt: null,
+    // Going back to an older version rather than forward.
+    rollback: false,
   };
   let timers = [];
 
@@ -73,7 +78,48 @@ export function createUpdater({ broadcast, beforeInstall }) {
     autoUpdater.on('update-not-available', () => set({ status: 'none', version: null, notes: '', checkedAt: Date.now() }));
     autoUpdater.on('download-progress', (p) => set({ status: 'downloading', percent: Math.floor(p.percent) }));
     autoUpdater.on('update-downloaded', (info) => set({ status: 'downloaded', version: info.version, percent: 100 }));
-    autoUpdater.on('error', (err) => set({ status: 'error', error: friendlyError(err), checkedAt: Date.now() }));
+    autoUpdater.on('error', (err) => {
+      set({ status: 'error', error: friendlyError(err), checkedAt: Date.now() });
+      if (state.rollback) useLatest();
+    });
+  }
+
+  // Back to following the newest release.
+  function useLatest() {
+    autoUpdater.allowDowngrade = false;
+    autoUpdater.setFeedURL({ provider: 'github', ...REPO });
+  }
+
+  // The published versions, newest first.
+  async function versions() {
+    const res = await net.fetch(`https://api.github.com/repos/${REPO.owner}/${REPO.repo}/releases?per_page=60`, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!res.ok) throw new Error(`GitHub yanıt vermedi (${res.status}).`);
+    return (await res.json())
+      .filter((r) => !r.draft && !r.prerelease)
+      .map((r) => ({ version: r.tag_name.replace(/^v/, ''), date: (r.published_at ?? '').slice(0, 10), installable: r.assets.some((a) => a.name === 'latest.yml') }));
+  }
+
+  // Puts an older version in place of this one: that release's own
+  // latest.yml is the feed and going down is allowed; then the usual
+  // download and "restart and install". The portable copy gets its page.
+  async function installVersion(version) {
+    if (!supported || !/^\d+\.\d+\.\d+$/.test(String(version))) return state;
+    if (portable) {
+      shell.openExternal(`https://github.com/${REPO.owner}/${REPO.repo}/releases/tag/v${version}`);
+      return state;
+    }
+    if (state.status === 'downloading') return state;
+    beforeRollback?.(version);
+    autoUpdater.allowDowngrade = true;
+    autoUpdater.setFeedURL({ provider: 'generic', url: `https://github.com/${REPO.owner}/${REPO.repo}/releases/download/v${version}` });
+    set({ status: 'idle', rollback: true, version: null, error: null });
+    await check();
+    if (state.status === 'available' && state.version === version) await download();
+    else if (state.status !== 'error') {
+      set({ status: 'error', error: `v${version} bulunamadı.` });
+      useLatest();
+    }
+    return state;
   }
 
   async function check() {
@@ -120,6 +166,8 @@ export function createUpdater({ broadcast, beforeInstall }) {
   return {
     get: () => state,
     check,
+    versions,
+    installVersion,
     download,
     install,
     setAutomatic,

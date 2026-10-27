@@ -8,6 +8,18 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.19.0',
+    date: '2026-10-27',
+    title: 'Yanlış birleştirmeler geri, geri bildirim, eski sürüme dönüş',
+    items: [
+      ['fix', '1.18.0’ın yanlışlıkla birleştirdiği test sistemleri (ör. “ASLI TH-1728”, “ASLI TH-1300-F” → “ASLI”) yedekteki adlarına döner; hangilerinin döndüğü gösterilir. Model numaraları artık boyut sayılmaz'],
+      ['better', 'Test sistemleri artık kendiliğinden birleştirilmez: aynı olabilecekler “Aynı test sistemi olabilir” önerisi olarak sorulur; Test sistemi listesinden de açılır'],
+      ['better', 'Müşteri adı değişince “kaydedildi” bildirimi çıkar; aynı müşteri adını taşıyan diğer projelerde de tek tıkla değiştirilebilir. Yayından önceki Windows denetimi müşteri yazmayı da sınar'],
+      ['new', 'Geri bildirim: soldaki balon düğmesi (ya da Ayarlar’ın altı) hata, öneri veya soruyu GitHub’da doldurulmuş bir kayıt olarak açar'],
+      ['new', 'Eski bir sürüme dönüş: Güncellemeler → “Eski bir sürüme dön”. Seçilen sürüm indirilip kurulur, öncesinde verilerin yedeklenir (portable’da indirme sayfası açılır)'],
+    ],
+  },
+  {
     version: '1.18.0',
     date: '2026-10-27',
     title: 'Müşteri alanı, tek “Sarsıcı”, silme',
