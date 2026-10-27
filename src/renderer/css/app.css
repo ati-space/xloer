@@ -1788,7 +1788,8 @@ body.file-over .file-drop {
   text-transform: none;
 }
 .inv-card .inv-customer input {
-  width: 170px;
+  width: 190px;
+  border-color: var(--border);
   font-family: var(--font-ui);
   font-size: 13px;
   letter-spacing: 0;
@@ -1904,6 +1905,18 @@ body.file-over .file-drop {
 }
 .manage-row:hover {
   background: var(--hover);
+}
+.manage-row .icon-btn.danger {
+  color: var(--text-3);
+}
+.manage-row .icon-btn.danger:hover {
+  color: var(--danger);
+}
+/* The one-time notice of merged test systems. */
+.merged-list {
+  margin: 8px 0 10px;
+  padding-left: 18px;
+  line-height: 1.6;
 }
 .manage-row > span:first-child {
   flex: 1;

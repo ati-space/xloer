@@ -84,7 +84,7 @@ test('importing adds new projects, updates matching ones and learns devices from
   const existing = dispatch(s, { type: 'invoice/create', code: 'p26-0001-0001', title: 'eski' });
   dispatch(s, { type: 'invoice/update', id: existing, patch: { no: 3, amount: 1 } });
   const r = dispatch(s, { type: 'invoice/import', projects });
-  assert.deepEqual(r, { created: 2, updated: 1, devicesAdded: 2, testsAdded: 1 });
+  assert.deepEqual(r, { created: 2, updated: 1, devicesAdded: 3, testsAdded: 1 });
   const updated = s.invoices.find((i) => i.id === existing);
   assert.equal(updated.title, 'ÖRNEK UN38.3 Testleri');
   assert.equal(updated.amount, 16600);

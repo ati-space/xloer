@@ -1342,6 +1342,7 @@ addEventListener('keydown', (e) => {
 appVersion = (await api.appInfo()).version;
 const first = await api.getState();
 setState(first.state);
+if (!first.state.settings.devicesMergedByName) invoices.mergeSameDevices(first.state);
 api.onState((payload) => setState(payload.state));
 setUpdate(await api.update.get());
 api.update.onState(setUpdate);

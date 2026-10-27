@@ -8,6 +8,16 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.18.0',
+    date: '2026-10-27',
+    title: 'Müşteri alanı, tek “Sarsıcı”, silme',
+    items: [
+      ['fix', 'Kartta “Müşteri” artık belirgin bir alan: başlıktan okunan ad yanlışsa üzerine yazıp düzelt; boş bırakılırsa yine başlıktan okunur'],
+      ['better', 'Yalnız boyutu farklı test sistemleri bir kez tek ad altında birleştirilir (ör. 70kN, 49kN, 10kN Sarsıcı → Sarsıcı); hangilerinin birleştiği gösterilir, “Geri al” ile geri alınabilir. Excel’den eski adlar gelince de birleşik ad yazılır'],
+      ['new', 'Test ve cihaz listelerinin sonunda “düzenle / sil…”: test türleri ve cihazlar oradan silinir (“Geri al” ile); onları kullanan satırlar olduğu gibi kalır'],
+    ],
+  },
+  {
     version: '1.17.1',
     date: '2026-10-27',
     title: 'Biten raporlar her seviyede gizlenir',

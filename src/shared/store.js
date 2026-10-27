@@ -6,6 +6,7 @@
 import { assignCustomers } from './customers.js';
 import { DEFAULT_PALETTE, PALETTES } from './themes.js';
 import { DEFAULT_DEVICES, DEFAULT_TEST_TYPES } from './invoices.js';
+import { sameBaseDevices } from './devices.js';
 
 export const SCHEMA_VERSION = 1;
 export const INBOX_ID = 'inbox';
@@ -36,6 +37,8 @@ export function defaultSettings() {
     startWithWindows: false,
     autoUpdate: true,
     trayHintShown: false,
+    // Test systems that differ only by size have been merged once (device/merge-same).
+    devicesMergedByName: false,
     widget: {
       visible: true,
       listId: null,
@@ -112,6 +115,7 @@ function normalizeSettings(raw = {}) {
     startWithWindows: !!raw.startWithWindows,
     autoUpdate: typeof raw.autoUpdate === 'boolean' ? raw.autoUpdate : d.autoUpdate,
     trayHintShown: !!raw.trayHintShown,
+    devicesMergedByName: !!raw.devicesMergedByName,
     widget: {
       visible: typeof w.visible === 'boolean' ? w.visible : d.widget.visible,
       listId: typeof w.listId === 'string' ? w.listId : null,
@@ -1025,6 +1029,20 @@ const handlers = {
     for (const a of s.deviceAliases) if (foldName(a.to) === foldName(from)) a.to = target;
     s.deviceAliases = normalizeAliases([...s.deviceAliases, { from, to: target }]);
     return { rows };
+  },
+
+  // Test systems that differ only by size ("70kN Sarsıcı", "10kN Sarsıcı")
+  // become one ("Sarsıcı"): on the cards, in the list, and for later Excel
+  // imports. Returns what was merged: [{ to, from, rows }].
+  'device/merge-same'(s) {
+    const merged = [];
+    for (const g of sameBaseDevices(s)) {
+      let rows = 0;
+      for (const from of g.from) rows += handlers['device/merge'](s, { from, to: g.to }).rows;
+      merged.push({ ...g, rows });
+    }
+    s.settings.devicesMergedByName = true;
+    return merged;
   },
 
   'device/unalias'(s, { from }) {

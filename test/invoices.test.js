@@ -55,7 +55,7 @@ test('copy: intro line, yellow header rows and one row per test, in date order',
 
 test('invoice actions: numbering, rows, device → test, swapped dates, undo delete', () => {
   const s = emptyState();
-  assert.deepEqual(s.devices.map((d) => d.name), ['Solar Kabin', '70kN Sarsıcı', '10kN Sarsıcı']);
+  assert.deepEqual(s.devices.map((d) => d.name), ['Solar Kabin', 'Sarsıcı']);
   const a = dispatch(s, { type: 'invoice/create', code: 'P26-0001-0001', title: 'ÖRNEK' });
   dispatch(s, { type: 'invoice/update', id: a, patch: { no: 59 } });
   const b = dispatch(s, { type: 'invoice/create' });
@@ -66,7 +66,7 @@ test('invoice actions: numbering, rows, device → test, swapped dates, undo del
   assert.equal(inv.rows[0].test, 'İklimlendirme Testi');
   const r2 = dispatch(s, { type: 'invoice/row-add', id: a, row: { start: '2026-09-30' } });
   assert.equal(inv.rows.find((r) => r.id === r2).device, 'Solar Kabin');
-  dispatch(s, { type: 'invoice/row-update', id: a, rowId: r2, patch: { device: '70kN Sarsıcı' } });
+  dispatch(s, { type: 'invoice/row-update', id: a, rowId: r2, patch: { device: 'Sarsıcı' } });
   assert.equal(inv.rows.find((r) => r.id === r2).test, 'Titreşim Testi');
   dispatch(s, { type: 'invoice/row-update', id: a, rowId: r2, patch: { test: 'Mekanik Şok Testi' } });
   dispatch(s, { type: 'invoice/row-update', id: a, rowId: r2, patch: { device: '10kN Sarsıcı' } });
@@ -90,7 +90,7 @@ test('invoice actions: numbering, rows, device → test, swapped dates, undo del
 
 test('older data files get the default devices; saved lists are kept', () => {
   const old = normalizeState({ lists: [], tasks: [] });
-  assert.equal(old.devices.length, 3);
+  assert.equal(old.devices.length, 2);
   assert.equal(old.testTypes.length, 4);
   assert.deepEqual(old.invoices, []);
   const saved = normalizeState({
@@ -139,7 +139,7 @@ test('device merge: rows renamed, list cleaned, later imports follow', async () 
   assert.deepEqual(
     similarDevices(s).map((p) => [p.from, p.to]),
     [
-      ['70kN Elektrodinamik Sarsıcı', '70kN Sarsıcı'],
+      ['70kN Sarsıcı', '70kN Elektrodinamik Sarsıcı'],
       ['Servohidrolik', 'Servo Hidrolik Sarsıcı'],
     ],
   );
@@ -155,6 +155,19 @@ test('device merge: rows renamed, list cleaned, later imports follow', async () 
   dispatch(s, { type: 'device/unalias', from: '70kN Sarsıcı' });
   assert.equal(s.deviceAliases.length, 1);
   assert.throws(() => dispatch(s, { type: 'device/merge', from: 'a', to: 'A' }), /iki farklı/);
+});
+
+test('systems that differ only by size are merged once, under the size-less name', () => {
+  const s = emptyState();
+  const id = dispatch(s, { type: 'invoice/create', code: 'A' });
+  for (const device of ['70kN Sarsıcı', '49kN Sarsıcı', '10kN Sarsıcı', '70kN Sarsıcı', '1000L Kabin', 'Solar Kabin', '50kN Elektrodinamik Sarsıcı', 'Servo Hidrolik Sarsıcı'])
+    dispatch(s, { type: 'invoice/row-add', id, row: { device, start: '2026-10-01' } });
+  const merged = dispatch(s, { type: 'device/merge-same' });
+  assert.deepEqual(merged, [{ to: 'Sarsıcı', from: ['70kN Sarsıcı', '10kN Sarsıcı', '49kN Sarsıcı', '50kN Elektrodinamik Sarsıcı'], rows: 5 }]);
+  assert.deepEqual(s.invoices[0].rows.map((r) => r.device), ['Sarsıcı', 'Sarsıcı', 'Sarsıcı', 'Sarsıcı', '1000L Kabin', 'Solar Kabin', 'Sarsıcı', 'Servo Hidrolik Sarsıcı']);
+  assert.equal(s.settings.devicesMergedByName, true);
+  assert.ok(s.deviceAliases.some((a) => a.from === '49kN Sarsıcı' && a.to === 'Sarsıcı'), 'Excel names follow');
+  assert.deepEqual(dispatch(s, { type: 'device/merge-same' }), [], 'nothing left to merge');
 });
 
 test('one heading field: code, title and report no in and out', () => {
