@@ -168,9 +168,10 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
 - **Geri bildirim:** soldaki balon düğmesi (ya da Ayarlar’ın altı): hata, öneri veya
   soru yazılır; GitHub’da doldurulmuş bir kayıt açılır (GitHub hesabı gerekir).
 - **Test sistemleri:** Faturalar’da Test sistemi listesinin sonundaki “düzenle / sil…”
-  (ya da ⋯ → Test sistemleri ve test türleri). Aynı olabilecek adlar (ör. yalnız boyutu
-  farklı “70kN Sarsıcı” / “10kN Sarsıcı”) öneri olarak gelir; sen birleştirmedikçe
-  hiçbiri birleşmez.
+  (ya da ⋯ → Test sistemleri ve test türleri). Sistemi kapasitesi ve modeli ayırt
+  eder: “70kN Sarsıcı”, “49kN Sarsıcı”, “10kN Sarsıcı” ayrıdır. Yalnız “Elektrodinamik”
+  gibi tanım kelimeleri farklı adlar (ör. “70kN Elektrodinamik Sarsıcı”) aynı sistem
+  olarak önerilir; 50kN sarsıcı 49kN sayılır. Sen birleştirmedikçe hiçbiri birleşmez.
 
 ## Güncellemeler
 

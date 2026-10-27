@@ -6,7 +6,7 @@
 import { assignCustomers } from './customers.js';
 import { DEFAULT_PALETTE, PALETTES } from './themes.js';
 import { DEFAULT_DEVICES, DEFAULT_TEST_TYPES } from './invoices.js';
-import { wrongMerges } from './devices.js';
+import { merges118, similarGroups } from './devices.js';
 
 export const SCHEMA_VERSION = 1;
 export const INBOX_ID = 'inbox';
@@ -37,9 +37,11 @@ export function defaultSettings() {
     startWithWindows: false,
     autoUpdate: true,
     trayHintShown: false,
-    // 1.18.0 merged test systems once; 1.19.0 undoes its wrong merges once.
+    // 1.18.0 merged test systems once; 1.19.0 undid some of it, 1.20.0 the
+    // rest, putting names of one system under its main name (device/repair-names).
     devicesMergedByName: false,
     devicesRepaired: false,
+    devicesNamesFixed: false,
     widget: {
       visible: true,
       listId: null,
@@ -118,6 +120,7 @@ function normalizeSettings(raw = {}) {
     trayHintShown: !!raw.trayHintShown,
     devicesMergedByName: !!raw.devicesMergedByName,
     devicesRepaired: !!raw.devicesRepaired,
+    devicesNamesFixed: !!raw.devicesNamesFixed,
     widget: {
       visible: typeof w.visible === 'boolean' ? w.visible : d.widget.visible,
       listId: typeof w.listId === 'string' ? w.listId : null,
@@ -1042,17 +1045,21 @@ const handlers = {
     return { rows };
   },
 
-  // Undoes the merges 1.18.0 made by mistake (devices.js wrongMerges): each
-  // row gets back the name it had in `before` (rows: {"invoiceId:rowId":
-  // name}, devices: the list then, both from the newest backup made before
-  // 1.18.0) and later Excel imports keep the names apart. Runs once.
-  // Returns [{ from, to, rows }] and how many merged rows had no earlier name.
-  'device/unmerge-wrong'(s, { before = null } = {}) {
-    s.settings.devicesRepaired = true;
-    const wrong = wrongMerges(s);
-    if (!wrong.length) return { restored: [], unknown: 0 };
-    const restored = wrong.map((a) => ({ from: a.from, to: a.to, rows: 0 }));
-    const targets = new Set(wrong.map((a) => foldName(a.to)));
+  // Puts test system names right after 1.18.0, once: every merge it made is
+  // undone, each row getting back the name it had in `before` (rows:
+  // {"invoiceId:rowId": name}, devices: the list then; from the newest
+  // backup made before 1.18.0), and then the names of one system go under
+  // its main name (devices.js similarGroups: "70kN Elektrodinamik Sarsıcı"
+  // → "70kN Sarsıcı", any 50kN shaker → "49kN Sarsıcı"). Only data 1.18.0
+  // touched; elsewhere such names stay suggestions. Returns what came back
+  // ([{ from, to, rows }]), the rows that had no earlier name, and what was
+  // merged ([{ to, from, rows }]).
+  'device/repair-names'(s, { before = null } = {}) {
+    s.settings.devicesNamesFixed = true;
+    if (!s.settings.devicesMergedByName) return { restored: [], unknown: 0, merged: [] };
+    const undone = merges118(s);
+    const restored = undone.map((a) => ({ from: a.from, to: a.to, rows: 0 }));
+    const targets = new Set(undone.map((a) => foldName(a.to)));
     let unknown = 0;
     for (const inv of s.invoices) {
       for (const r of inv.rows) {
@@ -1065,19 +1072,25 @@ const handlers = {
         } else if (foldName(was ?? '') !== foldName(r.device)) unknown++;
       }
     }
-    const fromNames = new Set(wrong.map((a) => foldName(a.from)));
+    const fromNames = new Set(undone.map((a) => foldName(a.from)));
     s.deviceAliases = s.deviceAliases.filter((a) => !fromNames.has(foldName(a.from)));
     for (const x of restored) {
       const old = before?.devices?.find((d) => foldName(d.name) === foldName(x.from));
       if ((old || x.rows) && !findNamed(s.devices.map((d) => d.name), x.from)) s.devices.push({ name: x.from, test: old?.test ?? '' });
     }
-    // A name only the merge made ("ASLI") goes once nothing uses it.
+    // A name only the merge made ("Sarsıcı", "ASLI") goes once nothing uses it.
     for (const t of targets) {
       const used = s.invoices.some((i) => i.rows.some((r) => foldName(r.device) === t)) || s.deviceAliases.some((a) => foldName(a.to) === t);
       const listedBefore = before?.devices?.some((d) => foldName(d.name) === t);
       if (!used && !listedBefore) s.devices = s.devices.filter((d) => foldName(d.name) !== t);
     }
-    return { restored, unknown };
+    const merged = [];
+    for (const g of similarGroups(s)) {
+      let rows = 0;
+      for (const from of g.from) rows += handlers['device/merge'](s, { from, to: g.to }).rows;
+      merged.push({ to: g.to, from: g.from, rows });
+    }
+    return { restored: restored.filter((x) => x.rows), unknown, merged };
   },
 
   'device/unalias'(s, { from }) {

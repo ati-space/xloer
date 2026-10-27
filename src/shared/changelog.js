@@ -8,6 +8,16 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.20.0',
+    date: '2026-10-27',
+    title: 'Test sistemi adları: kapasite ayırt eder',
+    items: [
+      ['fix', '1.18.0’ın bütün birleştirmeleri geri alınır, “Sarsıcı” olanlar da: her satır yedekteki adına döner'],
+      ['better', 'Bir test sistemini kapasitesi ve modeli ayırt eder (70kN, 49kN, 10kN Sarsıcı ayrı sistemlerdir); yalnız “Elektrodinamik” gibi tanım kelimeleri farklı olan adlar aynı sistemdir ve ana adında birleştirilir. 50kN sarsıcı 49kN Sarsıcı sayılır'],
+      ['better', 'Hangi adların döndüğü ve birleştiği bir kez listelenir, “Geri al” ile geri alınabilir; Excel’den eski adlar gelince de ana ad yazılır. Bundan sonra yeni benzer adlar öneri olarak sorulur'],
+    ],
+  },
+  {
     version: '1.19.0',
     date: '2026-10-27',
     title: 'Fatura açıklaması, geri bildirim, eski sürüme dönüş',

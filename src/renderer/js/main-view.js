@@ -1396,7 +1396,7 @@ addEventListener('keydown', (e) => {
 appVersion = (await api.appInfo()).version;
 const first = await api.getState();
 setState(first.state);
-for (const n of (await api.notices?.()) ?? []) if (n.type === 'unmerge') invoices.showUnmerge(n);
+for (const n of (await api.notices?.()) ?? []) if (n.type === 'device-names') invoices.showDeviceNames(n);
 api.onState((payload) => setState(payload.state));
 setUpdate(await api.update.get());
 api.update.onState(setUpdate);

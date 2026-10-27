@@ -57,7 +57,7 @@ function start() {
     state = seedState();
     storage.saveNow(state);
   }
-  if (!state.settings.devicesRepaired) repairDeviceMerge();
+  if (!state.settings.devicesNamesFixed) repairDeviceNames();
   registerIpc();
   nativeTheme.themeSource = state.settings.theme;
   nativeTheme.on('updated', updateThemeColors);
@@ -107,10 +107,12 @@ async function startRest() {
 // Things to tell the main window once it is up (app:notices).
 const notices = [];
 
-// 1.18.0 merged some test systems by mistake ("ASLI TH-1728" → "ASLI").
-// Once: every row gets its name back from the newest backup made before
-// that version, and the window lists what came back.
-function repairDeviceMerge() {
+// 1.18.0 merged test systems by dropping their capacity and model
+// ("70kN Sarsıcı" → "Sarsıcı", "ASLI TH-1728" → "ASLI"). Once: every row
+// gets its name back from the newest backup made before that version, the
+// names of one system go under its main name (store.js device/repair-names),
+// and the window lists both, with a way back.
+function repairDeviceNames() {
   let before = null;
   if (state.settings.devicesMergedByName) {
     for (const file of storage.backupFiles()) {
@@ -125,8 +127,9 @@ function repairDeviceMerge() {
       }
     }
   }
-  const result = apply({ type: 'device/unmerge-wrong', before });
-  if (result.restored.length) notices.push({ type: 'unmerge', ...result, fromBackup: !!before });
+  const undo = structuredClone({ invoices: state.invoices, devices: state.devices, testTypes: state.testTypes, deviceAliases: state.deviceAliases });
+  const result = apply({ type: 'device/repair-names', before });
+  if (result.restored.length || result.merged.length) notices.push({ type: 'device-names', ...result, undo });
 }
 
 // ---------------------------------------------------------------- reminders

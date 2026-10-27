@@ -1,5 +1,9 @@
-// Test system names as used on the cards, and pairs that look like one
-// system written two ways ("70kN Elektrodinamik Sarsıcı" / "70kN Sarsıcı").
+// Test system names as used on the cards, and which names are one system
+// written two ways. A system is told apart by its capacity and model
+// ("70kN", "TH-1728"); words that only describe its kind ("Elektrodinamik",
+// "Sarsıcı", "Kabin") and punctuation do not. So "70kN Elektrodinamik
+// Sarsıcı" and "70kN Sarsıcı" are one system; "70kN Sarsıcı" and
+// "10kN Sarsıcı", or "ASLI TH-1728" and "ASLI TH-1300-F", are two.
 
 import { fold } from './search.js';
 import { DEFAULT_DEVICES } from './invoices.js';
@@ -7,56 +11,19 @@ import { DEFAULT_DEVICES } from './invoices.js';
 // Words that describe the kind of system rather than which one it is.
 const GENERIC = new Set(['elektrodinamik', 'sarsici', 'kabin', 'kabini', 'sistemi', 'sistem', 'test']);
 
-const similarKey = (name) =>
-  fold(name)
+// Systems known to be one although their names say otherwise: every
+// shaker named 50kN is the 49kN one.
+const SAME_AS = [{ test: (f) => /(^|\s)50\s?kn(\s|$)/.test(f) && f.includes('sarsici'), name: '49kN Sarsıcı' }];
+
+export function systemKey(name) {
+  const f = fold(name);
+  const same = SAME_AS.find((s) => s.test(f));
+  if (same) return systemKey(same.name);
+  return f
     .split(/[^\p{L}\p{N}]+/u)
     .filter((w) => w && !GENERIC.has(w))
     .join('');
-
-// A size: a number with an optional unit ("70kN", "1000L", "1m3"). Model
-// numbers ("TH-1728", "TH-1300-F") are not sizes; they tell systems apart.
-const isSize = (w) => /^[+-]?\d+(?:[.,]\d+)?(?:kn|n|kg|t|ton|l|lt|m3|kw|w|°c|mm|cm|m)?$/.test(w.toLocaleLowerCase('tr'));
-
-// A name without its size, and without "Elektrodinamik", which every such
-// shaker is: "70kN Elektrodinamik Sarsıcı" → "Sarsıcı".
-export function baseDeviceName(name) {
-  return String(name ?? '')
-    .trim()
-    .split(/\s+/)
-    .filter((w) => w && !isSize(w) && fold(w) !== 'elektrodinamik')
-    .join(' ');
 }
-
-// Systems that differ only by size, at least two names: [{ to, from: [names] }],
-// "to" being the size-less name (as one of them writes it, if any does).
-export function sizeVariants(state) {
-  const groups = new Map();
-  for (const d of deviceNames(state)) {
-    const base = baseDeviceName(d.name);
-    if (!base) continue;
-    const key = fold(base);
-    if (!groups.has(key)) groups.set(key, { base, names: [] });
-    groups.get(key).names.push(d.name);
-  }
-  return [...groups.values()]
-    .filter((g) => g.names.length > 1)
-    .map((g) => {
-      const to = g.names.find((n) => fold(n) === fold(g.base)) ?? g.base;
-      return { to, from: g.names.filter((n) => fold(n) !== fold(to)) };
-    });
-}
-
-// 1.18.0 merged once, by dropping every word with a digit in it, so model
-// numbers went too ("ASLI TH-1728" → "ASLI"). Those merges: aliases that the
-// 1.18.0 rule makes but the size rule does not.
-const rule118 = (name) =>
-  String(name ?? '')
-    .trim()
-    .split(/\s+/)
-    .filter((w) => w && !/\d/.test(w) && fold(w) !== 'elektrodinamik')
-    .join(' ');
-export const wrongMerges = (state) =>
-  state.deviceAliases.filter((a) => fold(rule118(a.from)) === fold(a.to) && fold(baseDeviceName(a.from)) !== fold(a.to));
 
 // Every name in the device list or on a row, with how many rows use it.
 export function deviceNames(state) {
@@ -73,36 +40,41 @@ export function deviceNames(state) {
   return [...byKey.values()].sort((a, b) => b.rows - a.rows || a.name.localeCompare(b.name, 'tr'));
 }
 
-// Suggested merges ("Aynı test sistemi olabilir"); nothing is merged until
-// the user says so. Names that differ only by size go under the size-less
-// name; names that differ by generic words or punctuation go under a
-// default system's name, else the most used one.
-export function similarDevices(state) {
-  const pairs = [];
-  const seen = new Set();
-  const push = (p) => {
-    if (seen.has(fold(p.from))) return;
-    seen.add(fold(p.from));
-    pairs.push(p);
-  };
-  const rows = new Map(deviceNames(state).map((d) => [fold(d.name), d.rows]));
-  for (const g of sizeVariants(state)) for (const from of g.from) push({ from, to: g.to, rows: rows.get(fold(from)) ?? 0 });
-  for (const p of genericPairs(state)) push(p);
-  return pairs;
-}
-
-function genericPairs(state) {
+// Names of one system: [{ to, from: [names] }]. The name kept ("the main
+// test system") is a default system's (70kN / 49kN / 10kN Sarsıcı, Solar
+// Kabin), else the most used one.
+export function similarGroups(state) {
   const groups = new Map();
   for (const d of deviceNames(state)) {
-    const key = similarKey(d.name);
+    const key = systemKey(d.name);
     if (key) groups.set(key, [...(groups.get(key) ?? []), d]);
   }
-  const defaults = new Set(DEFAULT_DEVICES.map((d) => fold(d.name)));
-  const pairs = [];
-  for (const group of groups.values()) {
-    if (group.length < 2) continue;
-    const keep = group.find((d) => defaults.has(fold(d.name))) ?? group[0];
-    for (const d of group) if (d !== keep) pairs.push({ from: d.name, to: keep.name, rows: d.rows });
+  const defaults = DEFAULT_DEVICES.map((d) => d.name);
+  const out = [];
+  for (const [key, group] of groups) {
+    const main = defaults.find((n) => systemKey(n) === key);
+    if (group.length < 2 && !(main && fold(group[0].name) !== fold(main))) continue;
+    const to = main ?? group[0].name;
+    const from = group.filter((d) => fold(d.name) !== fold(to));
+    if (from.length) out.push({ to, from: from.map((d) => d.name), rows: from.reduce((n, d) => n + d.rows, 0) });
   }
-  return pairs;
+  return out;
 }
+
+// The same as pairs, for the "Aynı test sistemi olabilir" suggestions;
+// nothing is merged until the user says so.
+export function similarDevices(state) {
+  const rows = new Map(deviceNames(state).map((d) => [fold(d.name), d.rows]));
+  return similarGroups(state).flatMap((g) => g.from.map((from) => ({ from, to: g.to, rows: rows.get(fold(from)) ?? 0 })));
+}
+
+// The merges 1.18.0 made: it dropped every word with a digit and
+// "Elektrodinamik", so "70kN Sarsıcı" became "Sarsıcı" and "ASLI TH-1728"
+// "ASLI". Its aliases are the ones that rule makes.
+const rule118 = (name) =>
+  String(name ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w && !/\d/.test(w) && fold(w) !== 'elektrodinamik')
+    .join(' ');
+export const merges118 = (state) => state.deviceAliases.filter((a) => fold(rule118(a.from)) === fold(a.to) && fold(a.from) !== fold(a.to));

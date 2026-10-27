@@ -782,14 +782,33 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     if (r) toast(`“${from}” → “${to}” · ${r.rows} satır`, { timeout: 9000, action: { label: 'Geri al', run: () => A.run({ type: 'invoice/import-undo', ...snapshot }) } });
   }
 
-  // 1.19.0's repair of the 1.18.0 merges (main.js repairDeviceMerge).
-  function showUnmerge(n) {
+  // What main.js repairDeviceNames did to the 1.18.0 names, with a way back.
+  async function showDeviceNames(n) {
     const box = document.createElement('div');
-    box.innerHTML = `<p class="modal-text">1.18.0 bazı test sistemlerini yanlışlıkla birleştirmişti; şunlar eski adlarına döndü:</p>
-      <ul class="merged-list">${n.restored.map((x) => `<li><b>${esc(x.from)}</b> <span class="muted small">${x.rows} satır (${esc(x.to)} yazıyordu)</span></li>`).join('')}</ul>
-      ${n.unknown ? `<p class="hint">${n.unknown} satırın eski adı yedekte yoktu; “${esc(n.restored[0].to)}” olarak kaldı. Excel’i yeniden içe aktarırsan Excel’deki adı alır.</p>` : ''}
-      <p class="hint">Boyutu farklı sistemler artık kendiliğinden birleştirilmez; “Aynı test sistemi olabilir” önerisi olarak sorulur.</p>`;
-    return modal({ title: 'Test sistemi adları düzeltildi', body: box, buttons: [{ label: 'Tamam', primary: true, value: true }] });
+    const list = (items) => `<ul class="merged-list">${items.join('')}</ul>`;
+    box.innerHTML = `${
+      n.restored.length
+        ? `<p class="modal-text">1.18.0’ın birleştirmeleri geri alındı; satırlar eski adlarına döndü:</p>
+      ${list(n.restored.map((x) => `<li><b>${esc(x.from)}</b> <span class="muted small">${x.rows} satır</span></li>`))}`
+        : ''
+    }
+      ${n.unknown ? `<p class="hint">${n.unknown} satırın eski adı yedekte yoktu; olduğu gibi kaldı. Excel’i yeniden içe aktarırsan Excel’deki adı alır.</p>` : ''}
+      ${
+        n.merged.length
+          ? `<p class="modal-text">Aynı test sisteminin farklı yazılışları ana adında birleştirildi (kapasite ve model ayırt eder; 50kN sarsıcı 49kN’dir):</p>
+      ${list(n.merged.map((g) => `<li><span>${g.from.map(esc).join(', ')}</span> <span class="muted">→</span> <b>${esc(g.to)}</b> <span class="muted small">${g.rows} satır</span></li>`))}`
+          : ''
+      }
+      <p class="hint">Excel’den bu adlar gelince de ana ad yazılır. Bundan sonra benzer adlar kendiliğinden birleşmez; “Aynı test sistemi olabilir” önerisi olarak sorulur.</p>`;
+    const undo = await modal({
+      title: 'Test sistemi adları düzeltildi',
+      body: box,
+      buttons: [
+        { label: 'Geri al', value: true },
+        { label: 'Tamam', primary: true, value: false },
+      ],
+    });
+    if (undo) A.run({ type: 'invoice/import-undo', ...n.undo });
   }
 
   async function mergeDialog(from) {
@@ -888,7 +907,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
   return {
     render,
     newProject,
-    showUnmerge,
+    showDeviceNames,
     importFile,
     // Opens the screen filtered to one project code.
     showCode: (code) => {

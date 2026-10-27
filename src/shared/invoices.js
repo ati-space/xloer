@@ -6,7 +6,9 @@ export const SHIFTS_PER_DAY = 3;
 
 export const DEFAULT_DEVICES = [
   { name: 'Solar Kabin', test: 'İklimlendirme Testi' },
-  { name: 'Sarsıcı', test: 'Titreşim Testi' },
+  { name: '70kN Sarsıcı', test: 'Titreşim Testi' },
+  { name: '49kN Sarsıcı', test: 'Titreşim Testi' },
+  { name: '10kN Sarsıcı', test: 'Titreşim Testi' },
 ];
 
 export const DEFAULT_TEST_TYPES = ['İklimlendirme Testi', 'Titreşim Testi', 'Mekanik Şok Testi', 'Titreşim ve Mekanik Şok Testi'];
