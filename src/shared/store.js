@@ -267,6 +267,8 @@ function normalizeInvoice(i) {
     amount: Number.isFinite(i.amount) && i.amount >= 0 ? i.amount : null,
     rows: (Array.isArray(i.rows) ? i.rows : []).map(normalizeRow).filter((r) => r && !ids.has(r.id) && ids.add(r.id)),
     customer: str(i.customer, '').trim(),
+    // "Açıklama": free text about the project or its invoice, kept on import.
+    notes: str(i.notes, '').trimEnd(),
     // The year the amount counts in, chosen on the card; null: the last test's.
     year: Number.isInteger(i.year) && i.year >= 2000 && i.year <= 2100 ? i.year : null,
     // From Excel: the "Proje Kodu" cell when it disagreed with the title.
@@ -875,6 +877,7 @@ const handlers = {
   'invoice/update'(s, { id, patch = {} }) {
     const inv = mustInvoice(s, id);
     for (const k of ['code', 'title', 'ref', 'customer']) if (k in patch) inv[k] = typeof patch[k] === 'string' ? patch[k].trim() : inv[k];
+    if ('notes' in patch && typeof patch.notes === 'string') inv.notes = patch.notes.trimEnd();
     if ('year' in patch) inv.year = normalizeInvoice({ id: inv.id, year: patch.year }).year;
     if ('no' in patch && Number.isInteger(patch.no) && patch.no > 0) inv.no = patch.no;
     if ('amount' in patch) inv.amount = Number.isFinite(patch.amount) && patch.amount >= 0 ? Math.round(patch.amount * 100) / 100 : null;

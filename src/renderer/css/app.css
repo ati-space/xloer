@@ -2013,3 +2013,34 @@ body.file-over .file-drop {
   margin-top: 8px;
   overflow-y: auto;
 }
+
+/* A card's "Açıklama": free text under the tests, as tall as its text. */
+.inv-notes {
+  padding: 4px 10px 8px;
+  border-top: 1px solid var(--line);
+}
+.inv-card .inv-notes textarea {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  max-height: 220px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  field-sizing: content;
+}
+.inv-card .inv-notes textarea:focus {
+  border-color: var(--accent);
+  background: var(--bg-list);
+  outline: none;
+}
+.inv-card-foot .link-btn.on {
+  color: var(--text);
+}

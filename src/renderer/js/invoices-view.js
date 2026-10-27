@@ -65,6 +65,8 @@ export function createInvoicesView(el, { onToggleSidebar }) {
   let lastPicked = null;
   // Cards with their checks list open, and the "Uyarılı" filter.
   const openIssues = new Set();
+  // Cards whose "Açıklama" was opened while still empty (one with text always shows it).
+  const notesOpen = new Set();
   let onlyIssues = false;
   const issuesOf = (inv) => invoiceIssues(inv, todayStr());
 
@@ -113,7 +115,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
 
   // Typing in a field must not be interrupted by a re-render; it catches up
   // when the field loses focus.
-  const typing = (a) => el.contains(a) && a !== filterInput && a.matches('input:not([type="checkbox"])');
+  const typing = (a) => el.contains(a) && a !== filterInput && a.matches('input:not([type="checkbox"]), textarea');
 
   function invoice(id) {
     return state.invoices.find((i) => i.id === id);
@@ -123,7 +125,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     if (yearFilter && billingYear(inv) !== yearFilter) return false;
     if (onlyIssues && !issuesOf(inv).length) return false;
     if (!filter.trim()) return true;
-    const hay = fold([inv.no, inv.code, inv.title, inv.ref, customerOf(inv), ...inv.rows.flatMap((r) => [r.device, r.test])].join(' '));
+    const hay = fold([inv.no, inv.code, inv.title, inv.ref, customerOf(inv), inv.notes, ...inv.rows.flatMap((r) => [r.device, r.test])].join(' '));
     return fold(filter)
       .split(/\s+/)
       .filter(Boolean)
@@ -187,6 +189,7 @@ export function createInvoicesView(el, { onToggleSidebar }) {
     const on = selected.has(inv.id);
     const issues = issuesOf(inv);
     const open = issues.length > 0 && openIssues.has(inv.id);
+    const notesShown = !!inv.notes || notesOpen.has(inv.id);
     return `<article class="inv-card${on ? ' picked' : ''}" data-id="${esc(inv.id)}">
       <header class="inv-card-head">
         <label class="inv-pick" title="Seç (Shift ile aralık)"><input type="checkbox" data-pick${on ? ' checked' : ''} aria-label="${esc(`No ${inv.no} seç`)}"></label>
@@ -200,11 +203,17 @@ export function createInvoicesView(el, { onToggleSidebar }) {
       <div class="inv-table-wrap">
         <table class="inv-table">
           <thead><tr><th>Test</th><th>Test Sistemi</th><th>Test Tarihi</th><th class="num">Gün / Vardiya</th><th></th></tr></thead>
-          <tbody>${rows.map((r) => rowHtml(r, issues)).join('') || '<tr class="inv-empty"><td colspan="5">Henüz test yok. “Test ekle” ile cihaz ve tarih seç.</td></tr>'}</tbody>
+          <tbody>${rows.map((r) => rowHtml(r, issues)).join('') || '<tr class="inv-empty"><td colspan="5">Henüz test yok. “Test ekle” ile test sistemi ve tarih seç.</td></tr>'}</tbody>
         </table>
       </div>
+      ${
+        notesShown
+          ? `<div class="inv-notes"><textarea data-f="notes" rows="2" placeholder="Bu proje ya da faturası hakkında açıklama…" aria-label="Açıklama" spellcheck="true">${esc(inv.notes)}</textarea></div>`
+          : ''
+      }
       <footer class="inv-card-foot">
         <button type="button" class="link-btn" data-i="row-add">${icon('plus', 14)}Test ekle</button>
+        <button type="button" class="link-btn${inv.notes ? ' on' : ''}" data-i="notes" aria-expanded="${notesShown}" title="${inv.notes ? 'Açıklamaya git' : 'Bu proje ya da faturası hakkında açıklama ekle'}">${icon('notes', 14)}Açıklama</button>
         ${yearFieldHtml(inv)}
         <label class="inv-customer" title="Başlıktan okunur; yanlışsa üzerine yazıp düzelt. Boş bırakılırsa yine başlıktan okunur."><span>Müşteri</span><input data-f="customer" value="${esc(inv.customer)}" placeholder="${esc(customerOf(inv) || 'Müşteri')}" spellcheck="false" aria-label="Müşteri"></label>
         <span class="flex"></span>
@@ -556,6 +565,16 @@ export function createInvoicesView(el, { onToggleSidebar }) {
         return render(null, { force: true });
       case 'copy':
         return A.copyInvoiceTable(inv);
+      case 'notes': {
+        // Empty and open: the button closes it again; otherwise it opens and focuses.
+        if (!inv.notes && notesOpen.has(id)) {
+          notesOpen.delete(id);
+          return render(null, { force: true });
+        }
+        notesOpen.add(id);
+        focusAfter = { id, f: 'notes' };
+        return render(null, { force: true });
+      }
       case 'row-add': {
         const last = sortedRows(inv).at(-1);
         return A.run({ type: 'invoice/row-add', id, row: { start: last?.end ?? last?.start ?? todayStr() } });

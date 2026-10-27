@@ -202,6 +202,16 @@ test('the wrong 1.18.0 merges are undone from the backup, once; right ones stay'
   assert.deepEqual(dispatch(s, { type: 'device/unmerge-wrong', before }).restored, []);
 });
 
+test('an invoice keeps its notes, also through an Excel import', () => {
+  const s = emptyState();
+  const id = dispatch(s, { type: 'invoice/create', code: 'P26-0001-0001', title: 'ÖRNEK Titreşim Testi' });
+  dispatch(s, { type: 'invoice/update', id, patch: { notes: 'Fatura Kasım’da kesilecek.\nİrsaliye bekleniyor.\n\n' } });
+  assert.equal(s.invoices[0].notes, 'Fatura Kasım’da kesilecek.\nİrsaliye bekleniyor.');
+  dispatch(s, { type: 'invoice/import', projects: [{ no: 1, code: 'P26-0001-0001', title: 'ÖRNEK Titreşim Testi', rows: [] }] });
+  assert.equal(s.invoices[0].notes, 'Fatura Kasım’da kesilecek.\nİrsaliye bekleniyor.');
+  assert.equal(normalizeState(JSON.parse(JSON.stringify(s))).invoices[0].notes, s.invoices[0].notes);
+});
+
 test('one heading field: code, title and report no in and out', () => {
   const full = { code: 'P26-0001-0001', title: 'ÖRNEK Titreşim (Kombine) Testi', ref: 'TEST260101ORN01REV0' };
   assert.deepEqual(parseInvoiceTitle(invoiceTitle(full)), full);

@@ -10,8 +10,9 @@ export const CHANGELOG = [
   {
     version: '1.19.0',
     date: '2026-10-27',
-    title: 'Yanlış birleştirmeler geri, geri bildirim, eski sürüme dönüş',
+    title: 'Fatura açıklaması, geri bildirim, eski sürüme dönüş',
     items: [
+      ['new', 'Fatura kartında “Açıklama”: proje ya da faturası hakkında serbest not; kartta görünür, Excel’den yeniden alınca da kalır ve aramada bulunur'],
       ['fix', '1.18.0’ın yanlışlıkla birleştirdiği test sistemleri (ör. “ASLI TH-1728”, “ASLI TH-1300-F” → “ASLI”) yedekteki adlarına döner; hangilerinin döndüğü gösterilir. Model numaraları artık boyut sayılmaz'],
       ['better', 'Test sistemleri artık kendiliğinden birleştirilmez: aynı olabilecekler “Aynı test sistemi olabilir” önerisi olarak sorulur; Test sistemi listesinden de açılır'],
       ['better', 'Müşteri adı değişince “kaydedildi” bildirimi çıkar; aynı müşteri adını taşıyan diğer projelerde de tek tıkla değiştirilebilir. Yayından önceki Windows denetimi müşteri yazmayı da sınar'],

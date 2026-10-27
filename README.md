@@ -162,6 +162,9 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
   Bölümde `+` ile ekleyip `Enter`’a basınca bir sonraki satır açılır.
 - Pencereyi kapatınca sistem tepsisinde çalışmaya devam eder (Ayarlar’dan kapatılabilir).
 - Ayarlar → “Windows açılışında başlat”: oturum açılınca yalnızca widget gelir.
+- **Fatura açıklaması:** kartın altındaki “Açıklama” düğmesi proje ya da faturası
+  hakkında not alanını açar; not kartta görünür, aramada bulunur, Excel’den yeniden
+  alınca da kalır.
 - **Geri bildirim:** soldaki balon düğmesi (ya da Ayarlar’ın altı): hata, öneri veya
   soru yazılır; GitHub’da doldurulmuş bir kayıt açılır (GitHub hesabı gerekir).
 - **Test sistemleri:** Faturalar’da Test sistemi listesinin sonundaki “düzenle / sil…”
