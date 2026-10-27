@@ -3,7 +3,7 @@
 // get the whole state back after every change, so the main window and the
 // widget always show the same thing.
 
-import { app, BrowserWindow, ClipboardItem, Menu, Tray, clipboard, dialog, ipcMain, nativeImage, nativeTheme, screen, shell } from 'electron';
+import { app, BrowserWindow, ClipboardItem, Menu, Notification, Tray, clipboard, dialog, ipcMain, nativeImage, nativeTheme, screen, shell } from 'electron';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -95,6 +95,49 @@ async function startRest() {
   updater.setAutomatic(state.settings.autoUpdate);
   updateTrayMenu();
   sendAll('update:state', updater.get());
+  checkReminders();
+  setInterval(checkReminders, REMIND_EVERY);
+}
+
+// ---------------------------------------------------------------- reminders
+
+// A task with a date and a time reminds once when that moment comes: a
+// Windows notification, or a tray balloon in the portable build (it has no
+// Start menu entry, which notifications need). Clicking it opens the task.
+// A moment that passed while Xloer was closed reminds at the next start,
+// up to a week late.
+const REMIND_EVERY = 20 * 1000;
+const REMIND_LATE = 7 * 24 * 60 * 60 * 1000;
+let balloonTask = null;
+// Held until closed, so a notification is not collected before its click.
+const notifications = new Set();
+
+function checkReminders() {
+  const now = Date.now();
+  for (const t of state.tasks) {
+    if (t.done || t.deletedAt || !t.due || !t.dueTime) continue;
+    const at = `${t.due} ${t.dueTime}`;
+    const time = new Date(`${t.due}T${t.dueTime}:00`).getTime();
+    if (t.remindedFor === at || time > now || now - time > REMIND_LATE) continue;
+    apply({ type: 'task/reminded', id: t.id, at });
+    remind(t);
+  }
+}
+
+function remind(t) {
+  const title = `Xloer · ${t.dueTime}`;
+  const body = t.title || 'Başlıksız görev';
+  if (process.env.PORTABLE_EXECUTABLE_FILE || !Notification.isSupported()) {
+    if (!tray) return;
+    balloonTask = t.id;
+    tray.displayBalloon({ iconType: 'info', title, content: body });
+    return;
+  }
+  const n = new Notification({ title, body, icon: ICON });
+  notifications.add(n);
+  n.on('click', () => navigate({ type: 'task', id: t.id }));
+  n.on('close', () => notifications.delete(n));
+  n.show();
 }
 
 app.on('before-quit', () => {
@@ -387,6 +430,7 @@ function createTray() {
   tray = new Tray(trayImage());
   tray.setToolTip('Xloer');
   tray.on('click', () => showMain());
+  tray.on('balloon-click', () => (balloonTask ? navigate({ type: 'task', id: balloonTask }) : showMain()));
 }
 
 function updateTrayMenu() {
@@ -422,6 +466,7 @@ function updateTrayMenu() {
 
 function trayHint() {
   if (state.settings.trayHintShown || !isWin || !tray) return;
+  balloonTask = null;
   tray.displayBalloon({
     iconType: 'info',
     title: 'Xloer arka planda çalışıyor',

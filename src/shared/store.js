@@ -22,6 +22,7 @@ const defaultStages = () => DEFAULT_STAGES.map((name, i) => ({ id: `s${i}`, name
 const isStage = (state, id) => typeof id === 'string' && state.stages.some((st) => st.id === id);
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export function uid(prefix) {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -136,6 +137,10 @@ function normalizeTask(t) {
     done: !!t.done,
     doneAt: num(t.doneAt),
     due: typeof t.due === 'string' && DATE_RE.test(t.due) ? t.due : null,
+    // "HH:MM" on the due date: Xloer reminds then (main.js). remindedFor is
+    // the "date time" it last reminded of, so each moment reminds once.
+    dueTime: typeof t.dueTime === 'string' && TIME_RE.test(t.dueTime) && DATE_RE.test(t.due ?? '') ? t.dueTime : null,
+    remindedFor: typeof t.remindedFor === 'string' ? t.remindedFor : null,
     priority: PRIORITIES.includes(t.priority) ? t.priority : 0,
     // An id from state.stages; files from before 1.15 hold a position (0–4),
     // turned into an id by normalizeState.
@@ -473,6 +478,8 @@ function cleanPatch(state, task, patch = {}) {
   if ('title' in patch) task.title = typeof patch.title === 'string' ? patch.title.replace(/\s*\n\s*/g, ' ') : task.title;
   if ('notes' in patch) task.notes = typeof patch.notes === 'string' ? patch.notes : task.notes;
   if ('due' in patch) task.due = typeof patch.due === 'string' && DATE_RE.test(patch.due) ? patch.due : null;
+  if ('dueTime' in patch) task.dueTime = typeof patch.dueTime === 'string' && TIME_RE.test(patch.dueTime) ? patch.dueTime : null;
+  if (!task.due) task.dueTime = null;
   if ('priority' in patch && PRIORITIES.includes(patch.priority)) task.priority = patch.priority;
   if ('collapsed' in patch) task.collapsed = !!patch.collapsed;
   if ('stage' in patch) task.stage = isStage(state, patch.stage) ? patch.stage : null;
@@ -596,21 +603,34 @@ const handlers = {
     task.updatedAt = Date.now();
   },
 
-  // Completing a task completes its subtasks; reopening one reopens its parents
-  // so it does not stay hidden under a completed parent.
+  // The reminder for `at` ("date time") has been shown.
+  'task/reminded'(s, { id, at }) {
+    mustTask(s, id).remindedFor = typeof at === 'string' ? at : null;
+  },
+
+  // Completing a task completes its subtasks, and completing the last open
+  // subtask completes its parent (and so on upwards). Reopening a task
+  // reopens its parents, so it does not stay hidden under a completed one,
+  // and leaves its subtasks as they are. Returns the parents it completed.
   'task/toggle'(s, { id, done }) {
     const task = mustTask(s, id);
     const value = typeof done === 'boolean' ? done : !task.done;
     const index = buildIndex(s);
     const now = Date.now();
+    const complete = (t) => {
+      t.done = true;
+      t.doneAt = now;
+      t.updatedAt = now;
+    };
     if (value) {
-      for (const t of [task, ...descendants(index, id)]) {
-        if (!t.done) {
-          t.done = true;
-          t.doneAt = now;
-          t.updatedAt = now;
-        }
+      for (const t of [task, ...descendants(index, id)]) if (!t.done) complete(t);
+      const parents = [];
+      for (const p of ancestors(index, task).reverse()) {
+        if (p.done || !index.children(p.id).every((c) => c.done)) break;
+        complete(p);
+        parents.push(p.id);
       }
+      return { parents };
     } else {
       for (const t of [task, ...ancestors(index, task)]) {
         if (t.done) {

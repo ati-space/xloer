@@ -258,6 +258,7 @@ button:focus-visible,
 .modal-back,
 .menu,
 .cal,
+.text-card-back,
 .toasts,
 .file-drop,
 .viz-tip {
@@ -872,8 +873,129 @@ body.is-dragging * {
 .cal-foot .link-btn.quiet {
   color: var(--text-2);
 }
+/* Time mode: hour and minute fields, a note when the moment is past. */
+.cal-time {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cal-time span {
+  flex: 1;
+}
+.cal-time b {
+  color: var(--text-2);
+  font-size: 15px;
+}
+.cal-hm {
+  width: 40px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--input);
+  color: var(--text);
+  font: 600 15px var(--font-mono);
+  text-align: center;
+}
+.cal-hm:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.cal-warn {
+  margin: 6px 0 0;
+  color: var(--warn);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+.cal-warn:empty {
+  display: none;
+}
+.cal-foot {
+  align-items: center;
+}
 .cal-foot .link-btn:disabled {
   opacity: 0.4;
+}
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 2px;
+  color: var(--accent-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.link-btn:hover {
+  background: var(--hover);
+}
+
+/* The widget's text card (text-card.js): a task's whole title and
+   description over the list. */
+.text-card-back {
+  position: fixed;
+  inset: 0;
+  z-index: 1900;
+  background: rgba(0, 0, 0, 0.18);
+}
+.text-card {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  background: var(--menu-bg);
+  box-shadow: var(--shadow);
+  clip-path: var(--chamfer);
+  animation: pop 0.1s ease-out;
+}
+.text-card textarea {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  resize: none;
+  outline: none;
+}
+.tc-title {
+  padding: 10px 12px 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow: hidden;
+}
+.tc-notes {
+  padding: 4px 12px 8px;
+  border-top: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow-y: auto;
+}
+.tc-notes:focus {
+  color: var(--text);
+}
+.tc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px 4px 12px;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
 }
 
 .menu {

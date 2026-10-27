@@ -54,7 +54,8 @@ export function applyTheme(setting, palette = themePalette) {
 const MONTHS_SHORT = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 const DAYS_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
-export function dueLabel(due, done = false) {
+// time: "HH:MM" or null. Past once the day, or that time today, has gone.
+export function dueLabel(due, done = false, time = null) {
   if (!due) return null;
   const today = todayStr();
   const [y, m, d] = due.split('-').map(Number);
@@ -64,7 +65,10 @@ export function dueLabel(due, done = false) {
   else if (due === addDays(today, -1)) text = 'Dün';
   else if (due > today && due <= addDays(today, 6)) text = DAYS_SHORT[new Date(y, m - 1, d).getDay()];
   else text = `${d} ${MONTHS_SHORT[m - 1]}${String(y) === today.slice(0, 4) ? '' : ` ${y}`}`;
-  const tone = done ? '' : due < today ? 'overdue' : due === today ? 'today' : '';
+  if (time) text += ` ${time}`;
+  const now = new Date();
+  const past = due < today || (due === today && !!time && time <= `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+  const tone = done ? '' : past ? 'overdue' : due === today ? 'today' : '';
   return { text, tone };
 }
 

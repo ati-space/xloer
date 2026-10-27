@@ -7,7 +7,7 @@ import { TaskTree } from './tree.js';
 import { createInvoicesView } from './invoices-view.js';
 import { changelogUnseen, openChangelog } from './changelog-view.js';
 import { PALETTES } from '../../shared/themes.js';
-import { calendarAnchor, closeCalendar, openCalendar } from './calendar.js';
+import { calendarAnchor, closeCalendar } from './calendar.js';
 import { formatTrDate } from '../../shared/dates.js';
 import * as A from './actions.js';
 import { PRIORITY_LABELS, PRIORITY_COLORS, applyTheme, confirmModal, dueLabel, esc, formatDateTime, menuAt, modal, promptModal, showMenu, tagFill, toast } from './ui.js';
@@ -408,7 +408,7 @@ function renderDetail(force = false) {
   const list = getList(state, t.listId);
   const sec = list?.sections.find((s) => s.id === t.sectionId);
   const kids = index.children(t.id);
-  const due = dueLabel(t.due, t.done);
+  const due = dueLabel(t.due, t.done, t.dueTime);
   const parents = ancestors(index, t);
   const canNest = depthOf(index, t) < MAX_DEPTH;
   const report = !t.parentId;
@@ -416,7 +416,7 @@ function renderDetail(force = false) {
     <div class="detail-head">
       <button type="button" class="check big p${t.priority}" data-d="toggle" role="checkbox" aria-checked="${t.done}" title="Tamamlandı">${icon('checkmark', 13)}</button>
       <span class="d-divider"></span>
-      <button type="button" class="date-pill${t.due ? ' set' : ''} ${due?.tone ?? ''}" data-d="due" title="Bitiş tarihi${t.due ? `: ${formatTrDate(t.due)}` : ''}" aria-haspopup="dialog">${icon('calendar', 15)}<span>${due ? esc(due.text) : 'Tarih ekle'}</span></button>
+      <button type="button" class="date-pill${t.due ? ' set' : ''} ${due?.tone ?? ''}" data-d="due" title="Bitiş tarihi${t.due ? `: ${formatTrDate(t.due)}${t.dueTime ? ` ${t.dueTime}` : ''}` : ''}" aria-haspopup="dialog">${icon('calendar', 15)}<span>${due ? esc(due.text) : 'Tarih ekle'}</span></button>
       ${t.due ? `<button type="button" class="icon-btn small" data-d="clear-due" title="Tarihi kaldır">${icon('x', 13)}</button>` : ''}
       <span class="flex"></span>
       <button type="button" class="icon-btn" data-d="priority" title="${PRIORITY_LABELS[t.priority]}" style="color:${PRIORITY_COLORS[t.priority]}">${icon('flag')}</button>
@@ -550,13 +550,13 @@ els.detail.addEventListener('click', (e) => {
   }
 });
 
-// The date pill opens the Turkish calendar; a second click closes it.
+// The date pill opens the calendar with the time; a second click closes it.
 els.detail.addEventListener('click', (e) => {
   const pill = e.target.closest('.date-pill');
   const t = pill && detailTask();
   if (!t) return;
   if (calendarAnchor() === pill) return closeCalendar();
-  openCalendar(pill, { value: t.due, clearable: !!t.due, onPick: (due) => A.run({ type: 'task/update', id: t.id, patch: { due } }) });
+  A.pickDue(t, pill);
 });
 
 els.detail.addEventListener('input', (e) => {

@@ -92,7 +92,7 @@ export class TaskTree {
     const meta = [];
     if (r.path) meta.push(`<span class="path" title="${esc(r.path)}">${esc(r.path)}</span>`);
     for (const g of t.tags) meta.push(`<span class="tag-chip"${tagFill(this.tagColors.get(g.toLocaleLowerCase('tr')))}>#${esc(g)}</span>`);
-    const due = dueLabel(t.due, t.done);
+    const due = dueLabel(t.due, t.done, t.dueTime);
     if (due) meta.push(`<span class="due ${due.tone}">${esc(due.text)}</span>`);
     if (r.progress.total) meta.push(`<span class="progress" title="Alt görevler">${icon('subtasks', 13)}${r.progress.done}/${r.progress.total}</span>`);
     if (t.notes.trim()) meta.push(`<span class="has-notes" title="Açıklama var">${icon('notes', 13)}</span>`);
@@ -108,7 +108,7 @@ export class TaskTree {
     const caret = r.flat
       ? ''
       : `<button type="button" class="caret${r.childCount && !v.search ? '' : ' leaf'}${r.collapsed ? ' closed' : ''}" data-act="collapse" tabindex="-1" aria-label="Alt görevleri ${r.collapsed ? 'göster' : 'gizle'}">${icon('chevron', 14)}</button>`;
-    return `<div class="${cls.join(' ')}" style="--depth:${r.depth}" data-index="${i}" data-kind="task" data-id="${esc(r.id)}"${v.dnd && v.dnd !== 'none' && !r.trash ? ' data-drag' : ''} role="treeitem" aria-level="${r.depth + 1}" aria-selected="${r.id === this.selectedId}"${r.childCount ? ` aria-expanded="${!r.collapsed}"` : ''}>
+    return `<div class="${cls.join(' ')}" style="--depth:${r.depth}" data-index="${i}" data-kind="task" data-id="${esc(r.id)}"${v.dnd && v.dnd !== 'none' && !r.trash && !r.doneGroup ? ' data-drag' : ''} role="treeitem" aria-level="${r.depth + 1}" aria-selected="${r.id === this.selectedId}"${r.childCount ? ` aria-expanded="${!r.collapsed}"` : ''}>
       ${caret}<button type="button" class="check" data-act="toggle" role="checkbox" aria-checked="${t.done}" aria-label="Tamamlandı"${r.trash ? ' disabled' : ''}>${icon('checkmark', 12)}</button>
       <span class="title-wrap"><span class="title">${title}</span>${code}${snip}</span>${stage}
       <span class="meta">${meta.join('')}</span>${tools}
@@ -152,9 +152,15 @@ export class TaskTree {
     }
   }
 
+  // opts.onOpenText(row, rowEl), when given, takes a task's double-click
+  // (the widget shows the task's text); otherwise it renames.
   onDblClick(e) {
-    const { row } = this.rowFor(e.target);
+    const { row, el } = this.rowFor(e.target);
     if (!row || e.target.closest('[data-act]') || this.view.readonly || row.trash) return;
+    if (row.kind === 'task' && this.opts.onOpenText) {
+      window.getSelection()?.removeAllRanges();
+      return this.opts.onOpenText(row, el);
+    }
     if (row.kind === 'task' || (row.kind === 'section' && !this.view.search)) {
       window.getSelection()?.removeAllRanges();
       this.startEdit(row.id);

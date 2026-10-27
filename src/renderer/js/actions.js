@@ -2,7 +2,8 @@
 // error toasts, context menus, inline creation and keyboard moves.
 
 import { api } from './api.js';
-import { PRIORITY_COLORS, PRIORITY_LABELS, confirmModal, promptModal, showMenu, toast } from './ui.js';
+import { PRIORITY_COLORS, PRIORITY_LABELS, confirmModal, dueLabel, promptModal, showMenu, toast } from './ui.js';
+import { openCalendar } from './calendar.js';
 import { INBOX_ID, MAX_DEPTH, addDays, buildIndex, depthOf, getList, todayStr } from '../../shared/store.js';
 import { invoiceCopy, rowDays } from '../../shared/invoices.js';
 
@@ -34,11 +35,15 @@ function siblingsOf(index, t) {
   return t.parentId ? index.children(t.parentId) : index.roots(t.listId, t.sectionId);
 }
 
+// Ticking the last open step of a report completes the report too (see
+// task/toggle); "Geri al" reopens both.
 export async function toggle(state, task) {
   const done = !task.done;
-  const ok = await run({ type: 'task/toggle', id: task.id, done });
-  if (ok && done) {
-    toast(`“${short(task.title)}” tamamlandı`, { action: { label: 'Geri al', run: () => run({ type: 'task/toggle', id: task.id, done: false }) } });
+  const result = await run({ type: 'task/toggle', id: task.id, done });
+  if (result && done) {
+    const top = state.tasks.find((t) => t.id === result.parents?.at(-1));
+    const message = top ? `Tüm adımlar bitti: “${short(top.title)}” tamamlandı` : `“${short(task.title)}” tamamlandı`;
+    toast(message, { action: { label: 'Geri al', run: () => run({ type: 'task/toggle', id: task.id, done: false }) } });
   }
 }
 
@@ -135,13 +140,30 @@ export function priorityItems(task) {
   }));
 }
 
-export function dateItems(task) {
+// The date and time picker for a task (calendar.js in time mode), under
+// `anchor`. Past moments cannot be picked; Temizle removes both.
+export function pickDue(task, anchor) {
+  openCalendar(anchor, {
+    value: task.due,
+    min: todayStr(),
+    time: task.dueTime ?? null,
+    clearable: !!task.due,
+    onPick: (due, dueTime) => run({ type: 'task/update', id: task.id, patch: { due, dueTime } }),
+  });
+}
+
+// The quick days set a date without a time; "Tarih ve saat…" picks both.
+// anchor: the task's row, for the picker to open under.
+export function dateItems(task, anchor) {
   const today = todayStr();
-  const set = (due) => () => run({ type: 'task/update', id: task.id, patch: { due } });
+  const set = (due) => () => run({ type: 'task/update', id: task.id, patch: { due, dueTime: null } });
+  const current = dueLabel(task.due, false, task.dueTime);
   return [
-    { label: 'Bugün', icon: 'sun', checked: task.due === today, action: set(today) },
-    { label: 'Yarın', icon: 'calendar', checked: task.due === addDays(today, 1), action: set(addDays(today, 1)) },
-    { label: 'Gelecek hafta', icon: 'calendar', checked: task.due === addDays(today, 7), action: set(addDays(today, 7)) },
+    { label: 'Tarih ve saat…', icon: 'calendar', hint: current?.text ?? '', disabled: !anchor, action: () => pickDue(task, anchor) },
+    'sep',
+    { label: 'Bugün', icon: 'sun', checked: task.due === today && !task.dueTime, action: set(today) },
+    { label: 'Yarın', icon: 'calendar', checked: task.due === addDays(today, 1) && !task.dueTime, action: set(addDays(today, 1)) },
+    { label: 'Gelecek hafta', icon: 'calendar', checked: task.due === addDays(today, 7) && !task.dueTime, action: set(addDays(today, 7)) },
     { label: 'Tarihi kaldır', icon: 'x', disabled: !task.due, action: set(null) },
   ];
 }
@@ -163,7 +185,7 @@ export function showTaskMenu(ctx, row, x, y) {
     ctx.onReveal && { label: 'Listede göster', icon: 'list', action: () => ctx.onReveal(t.id) },
     ctx.onOpen && { label: 'Xloer’de aç', icon: 'external', action: () => ctx.onOpen(t.id) },
     'sep',
-    { label: 'Tarih', icon: 'calendar', items: dateItems(t) },
+    { label: 'Tarih', icon: 'calendar', items: dateItems(t, ctx.tree.el.querySelector(`.row[data-id="${CSS.escape(t.id)}"]`)) },
     { label: 'Öncelik', icon: 'flag', items: priorityItems(t) },
     { label: 'Taşı', icon: 'folder', items: moveTargets(ctx.state, t) },
     'sep',

@@ -1883,19 +1883,6 @@ body.file-over .file-drop {
   text-transform: none;
   font-variant-numeric: tabular-nums;
 }
-.link-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
-  border-radius: 2px;
-  color: var(--accent-ink);
-  font-size: 12.5px;
-  font-weight: 600;
-}
-.link-btn:hover {
-  background: var(--hover);
-}
 .field-label.spaced {
   margin-top: 12px;
 }

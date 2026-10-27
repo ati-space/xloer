@@ -5,9 +5,19 @@
 // Clicks inside it never take focus from the field, so a half-typed date can
 // still be finished; ↓ from the field moves into the days, where the arrow
 // keys, Page Up/Down (month, with Shift a year) and Enter work. Esc closes.
+//
+// With `time` it sets a moment: a day click only selects the day, the hour
+// and minute have fields of their own (↑/↓ or the wheel step them), and
+// "Kaydet" saves both. A moment already past cannot be saved.
 
-import { TR_MONTHS, TR_WEEKDAYS, calendarWeeks, formatTrDate } from '../../shared/dates.js';
+import { TR_MONTHS, TR_WEEKDAYS, addDaysIso, calendarWeeks, formatTrDate } from '../../shared/dates.js';
 import { todayStr } from '../../shared/store.js';
+
+const pad = (n) => String(n).padStart(2, '0');
+const nowTime = () => {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 let current = null;
 
@@ -24,10 +34,20 @@ export function updateCalendar(iso) {
 
 // anchor: the field or button it sits under. value / min / rangeStart: ISO
 // dates (rangeStart marks the start of a range on an end-date field).
-// onPick(iso), or onPick(null) from "Temizle".
-export function openCalendar(anchor, { value = null, min = null, rangeStart = null, clearable = true, onPick, onClose }) {
+// onPick(iso), or onPick(null) from "Temizle". time: "HH:MM", or null for a
+// moment without one yet; then onPick(iso, "HH:MM"), or onPick(null, null).
+export function openCalendar(anchor, { value = null, min = null, rangeStart = null, clearable = true, time, onPick, onClose }) {
   closeCalendar();
   const today = todayStr();
+  const withTime = time !== undefined;
+  if (withTime && !time) {
+    // A new moment: the next full hour today, or tomorrow morning late at night.
+    const next = new Date().getHours() + 1;
+    if (next > 23) value ??= addDaysIso(today, 1);
+    time = next > 23 ? '09:00' : `${pad(next)}:00`;
+  }
+  if (withTime) value ??= today;
+  let [hh, mm] = withTime ? time.split(':') : [];
   let focus = value ?? (min && min > today ? min : today);
   let year = Number(focus.slice(0, 4));
   let month = Number(focus.slice(5, 7));
@@ -72,10 +92,56 @@ export function openCalendar(anchor, { value = null, min = null, rangeStart = nu
           )
           .join('')}
       </div>
+      ${
+        withTime
+          ? `<div class="cal-time">
+        <span>Saat</span>
+        <input class="cal-hm" data-hm="h" value="${hh}" inputmode="numeric" maxlength="2" aria-label="Saat" spellcheck="false">
+        <b>:</b>
+        <input class="cal-hm" data-hm="m" value="${mm}" inputmode="numeric" maxlength="2" aria-label="Dakika" spellcheck="false">
+      </div>
+      <p class="cal-warn" aria-live="polite"></p>`
+          : ''
+      }
       <div class="cal-foot">
         <button type="button" class="link-btn" data-today${min && today < min ? ' disabled' : ''}>Bugün</button>
         ${clearable ? '<button type="button" class="link-btn quiet" data-clear>Temizle</button>' : ''}
+        ${withTime ? '<button type="button" class="btn small primary" data-save>Kaydet</button>' : ''}
       </div>`;
+    if (withTime) check();
+  }
+
+  // The moment can be saved once it is a day from today on and, today, a
+  // later time than now.
+  function problem() {
+    if (!value) return 'Bir gün seç.';
+    if (value < today) return 'Geçmiş bir gün seçilemez.';
+    if (value === today && `${hh}:${mm}` <= nowTime()) return 'Bu saat geçti; daha ileri bir saat seç.';
+    return '';
+  }
+
+  function check() {
+    const p = problem();
+    el.querySelector('.cal-warn').textContent = p;
+    el.querySelector('[data-save]').disabled = !!p;
+    return !p;
+  }
+
+  // Hour 0–23, minute 0–59; typing keeps only digits, leaving a field pads it.
+  function setPart(input, n, wrap = true) {
+    const max = input.dataset.hm === 'h' ? 23 : 59;
+    if (wrap) n = (n + max + 1) % (max + 1);
+    const v = pad(Math.min(Math.max(n, 0), max));
+    input.value = v;
+    if (input.dataset.hm === 'h') hh = v;
+    else mm = v;
+    check();
+  }
+
+  function save() {
+    if (!check()) return;
+    close();
+    onPick?.(value, `${hh}:${mm}`);
   }
 
   function place() {
@@ -84,7 +150,7 @@ export function openCalendar(anchor, { value = null, min = null, rangeStart = nu
     const h = el.offsetHeight;
     const below = r.bottom + 4 + h <= innerHeight - 8 || r.top - 4 - h < 8;
     el.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
-    el.style.top = `${below ? r.bottom + 4 : r.top - 4 - h}px`;
+    el.style.top = `${Math.max(8, Math.min(below ? r.bottom + 4 : r.top - 4 - h, innerHeight - h - 8))}px`;
   }
 
   function show(iso) {
@@ -99,8 +165,16 @@ export function openCalendar(anchor, { value = null, min = null, rangeStart = nu
   }
 
   function pick(iso) {
+    if (withTime && iso) {
+      // Choosing the day; "Kaydet" saves it with the time.
+      value = iso;
+      show(iso);
+      place();
+      return;
+    }
     close();
-    onPick?.(iso);
+    if (withTime) onPick?.(null, null);
+    else onPick?.(iso);
   }
 
   function step(days) {
@@ -116,7 +190,31 @@ export function openCalendar(anchor, { value = null, min = null, rangeStart = nu
     return `${d.toISOString().slice(0, 8)}${String(day).padStart(2, '0')}`;
   }
 
-  el.addEventListener('pointerdown', (e) => e.preventDefault());
+  el.addEventListener('pointerdown', (e) => {
+    if (!e.target.matches('.cal-hm')) e.preventDefault();
+  });
+  el.addEventListener('input', (e) => {
+    if (!e.target.matches('.cal-hm')) return;
+    const input = e.target;
+    input.value = input.value.replace(/\D/g, '').slice(0, 2);
+    const max = input.dataset.hm === 'h' ? 23 : 59;
+    const v = pad(Math.min(Number(input.value || 0), max));
+    if (input.dataset.hm === 'h') hh = v;
+    else mm = v;
+    check();
+  });
+  el.addEventListener('focusout', (e) => {
+    if (e.target.matches('.cal-hm')) setPart(e.target, Number(e.target.value || 0), false);
+  });
+  el.addEventListener(
+    'wheel',
+    (e) => {
+      if (!e.target.matches('.cal-hm')) return;
+      e.preventDefault();
+      setPart(e.target, Number(e.target.value || 0) + (e.deltaY < 0 ? 1 : -1));
+    },
+    { passive: false },
+  );
   el.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b || b.disabled) return;
@@ -126,8 +224,17 @@ export function openCalendar(anchor, { value = null, min = null, rangeStart = nu
     } else if (b.dataset.iso) pick(b.dataset.iso);
     else if ('today' in b.dataset) pick(today);
     else if ('clear' in b.dataset) pick(null);
+    else if ('save' in b.dataset) save();
   });
   el.addEventListener('keydown', (e) => {
+    if (e.target.matches('.cal-hm')) {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') setPart(e.target, Number(e.target.value || 0) + (e.key === 'ArrowUp' ? 1 : -1));
+      else if (e.key === 'Enter') save();
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     const keys = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
     if (e.key in keys) step(keys[e.key]);
     else if (e.key === 'PageUp' || e.key === 'PageDown') {

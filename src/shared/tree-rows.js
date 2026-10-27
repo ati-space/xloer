@@ -28,24 +28,37 @@ function sectionRow(list, sec, count) {
   return { kind: 'section', key: `s:${sec.id}`, id: sec.id, listId: list.id, section: sec, collapsed: sec.collapsed, count };
 }
 
-// The tree of one list: unsectioned tasks first, then every section with its tasks.
+// The tree of one list: unsectioned tasks first, then every section with its
+// tasks. Completed subtasks stay in place under their open parent. Completed
+// top-level tasks leave the tree; when the list shows completed tasks they
+// come last, under "Tamamlanan", newest first (rows marked doneGroup, which
+// are not dragged or dropped on).
 export function buildListRows(state, listId, opts = {}) {
   const list = getList(state, listId);
   if (!list) return [];
   const index = opts.index ?? buildIndex(state);
   const showDone = opts.showCompleted ?? list.showCompleted;
-  const visible = (t) => showDone || !t.done;
   const rows = [];
-  const push = (t, depth) => {
-    const kids = index.children(t.id).filter(visible);
-    rows.push(taskRow(t, depth, index, { childCount: kids.length, collapsed: t.collapsed && kids.length > 0 }));
-    if (!t.collapsed) for (const c of kids) push(c, depth + 1);
+  const push = (t, depth, extra = {}) => {
+    const kids = index.children(t.id);
+    rows.push(taskRow(t, depth, index, { childCount: kids.length, collapsed: t.collapsed && kids.length > 0, ...extra }));
+    if (!t.collapsed) for (const c of kids) push(c, depth + 1, extra);
   };
-  for (const t of index.roots(listId, null)) if (visible(t)) push(t, 0);
+  const open = (t) => !t.done && push(t, 0);
+  for (const t of index.roots(listId, null)) open(t);
   for (const sec of list.sections) {
     const roots = index.roots(listId, sec.id);
     rows.push(sectionRow(list, sec, roots.filter((t) => !t.done).length));
-    if (!sec.collapsed) for (const t of roots) if (visible(t)) push(t, 0);
+    if (!sec.collapsed) for (const t of roots) open(t);
+  }
+  if (showDone) {
+    const done = [null, ...list.sections.map((sec) => sec.id)]
+      .flatMap((sec) => index.roots(listId, sec).filter((t) => t.done))
+      .sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0));
+    if (done.length) {
+      rows.push({ kind: 'group', key: 'g:done', id: 'done', label: 'Tamamlanan', count: done.length });
+      for (const t of done) push(t, 0, { doneGroup: true });
+    }
   }
   return rows;
 }
@@ -109,7 +122,8 @@ export function buildDueRows(state, mode) {
   const order = treeOrder(state, index);
   const tasks = state.tasks
     .filter((t) => !t.deletedAt && !t.done && t.due && t.due <= end)
-    .sort((a, b) => a.due.localeCompare(b.due) || b.priority - a.priority || order.get(a.id) - order.get(b.id));
+    // Within a day, tasks with a time first, by time.
+    .sort((a, b) => a.due.localeCompare(b.due) || (a.dueTime ?? '~').localeCompare(b.dueTime ?? '~') || b.priority - a.priority || order.get(a.id) - order.get(b.id));
   const flat = (t) => taskRow(t, 0, index, { path: taskPath(state, index, t), flat: true });
   const groups = [{ key: 'overdue', label: 'Gecikmiş', tone: 'overdue', rows: tasks.filter((t) => t.due < today).map(flat) }];
   for (let d = today; d <= end; d = addDays(d, 1)) {

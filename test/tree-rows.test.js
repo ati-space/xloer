@@ -28,6 +28,25 @@ test('list rows: section header, reports and their subtasks in order', () => {
   assert.equal(rows.filter((r) => r.kind === 'task' && r.depth === 0).length, 11);
 });
 
+test('list rows: done steps stay under an open report; done reports go to "Tamamlanan"', () => {
+  const s = emptyState();
+  const listId = dispatch(s, { type: 'list/create', name: 'Work' });
+  const open = dispatch(s, { type: 'task/create', listId, title: 'Açık rapor' });
+  const step = dispatch(s, { type: 'task/create', parentId: open, title: 'Biten adım' });
+  dispatch(s, { type: 'task/create', parentId: open, title: 'Açık adım' });
+  const done = dispatch(s, { type: 'task/create', listId, title: 'Biten rapor' });
+  dispatch(s, { type: 'task/create', parentId: done, title: 'Son adım' });
+  dispatch(s, { type: 'task/toggle', id: step, done: true });
+  dispatch(s, { type: 'task/toggle', id: done, done: true });
+  const titles = (rows) => rows.map((r) => (r.kind === 'group' ? `[${r.label}]` : `${'  '.repeat(r.depth)}${r.task.title}`));
+
+  assert.deepEqual(titles(buildListRows(s, listId)), ['Açık rapor', '  Biten adım', '  Açık adım']);
+  const shown = buildListRows(s, listId, { showCompleted: true });
+  assert.deepEqual(titles(shown), ['Açık rapor', '  Biten adım', '  Açık adım', '[Tamamlanan]', 'Biten rapor', '  Son adım']);
+  assert.ok(shown.slice(3).every((r) => r.kind === 'group' || r.doneGroup));
+  assert.ok(shown.slice(0, 3).every((r) => !r.doneGroup));
+});
+
 test('dropping a report between two others reorders it with its subtasks', () => {
   const { s, work, rows } = setup();
   const kappa = rows.find((r) => r.task?.title === 'KAPPA Rapor');

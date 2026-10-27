@@ -58,6 +58,8 @@ export function attachDnd(tree, { scroller, getMode, onDrop }) {
         el.classList.add('drag-source');
         return;
       }
+      // The "Tamamlanan" group at the end is not a place to drop on.
+      if (rows[k].kind === 'group' || rows[k].doneGroup) return;
       const r = el.getBoundingClientRect();
       cands.push({ row: rows[k], el, top: r.top, bottom: r.bottom });
       if (rows[k].kind === 'section') blocks.push({ id: rows[k].id, el, top: r.top, bottom: r.bottom });

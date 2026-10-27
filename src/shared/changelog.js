@@ -8,6 +8,18 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.17.0',
+    date: '2026-10-27',
+    title: 'Biten raporlar, widget metin kartı, tarih ve saat',
+    items: [
+      ['new', 'Son adımı tamamlanan rapor da kendiliğinden tamamlanır ve listeden “Tamamlanan”a geçer; “Geri al” ikisini birden geri açar. Rapor yeniden açılırsa adımları olduğu gibi kalır'],
+      ['better', 'Tamamlanan adımlar, raporları açık oldukça yerlerinde üstü çizili görünür. “Tamamlananları göster” açıkken biten raporlar listenin sonunda “Tamamlanan” başlığı altında toplanır'],
+      ['new', 'Widget’ta bir göreve çift tıklayınca küçük bir kart açılır: başlık ve açıklama kesilmeden okunur, uzunsa kaydırılır ve orada düzenlenir. Esc ya da dışarı tıklamak kapatır; widget’ın boyutu değişmez'],
+      ['new', 'Tarih menüsünde “Tarih ve saat…”: takvimden gün, ay ve yıl; saat ve dakika ayrı ayrı. Geçmiş bir an seçilemez; kayıtlı tarih ve saat aynı yerden değiştirilir. Ayrıntı panelindeki tarih düğmesi de aynı seçiciyi açar'],
+      ['new', 'Saati olan görev, zamanı gelince Windows bildirimiyle hatırlatılır (portable sürümde tepsi balonuyla); bildirime tıklamak görevi açar'],
+    ],
+  },
+  {
     version: '1.16.1',
     date: '2026-10-26',
     title: 'Portable artık her açılışta hızlı',

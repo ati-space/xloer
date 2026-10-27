@@ -6,6 +6,7 @@ import { icon } from './icons.js';
 import { TaskTree } from './tree.js';
 import * as A from './actions.js';
 import { applyTheme, esc, menuAt, promptModal } from './ui.js';
+import { closeTextCard, openTextCard, textCardTaskId } from './text-card.js';
 import { buildIndex, getList, subtreeHeight } from '../../shared/store.js';
 import { buildListRows, buildSearchRows } from '../../shared/tree-rows.js';
 
@@ -52,6 +53,7 @@ const tree = new TaskTree(els.tree, {
     if (row.kind === 'section') A.showSectionMenu(ctx, row, x, y);
     else A.showTaskMenu(ctx, row, x, y);
   },
+  onOpenText: (row, el) => openTextCard(row.task, { anchor: el, onOpen: (id) => api.openTask(id) }),
   onRename: (row, text, info) => A.rename(state, tree, row, text, info),
   onRenameCancel: (row) => A.cancelNew(row),
   onMove: (action, info) => A.move(state, action, info),
@@ -67,6 +69,9 @@ function currentList() {
 function setState(next) {
   state = next;
   index = buildIndex(state);
+  // The task in the text card was deleted (here or in the main window).
+  const shown = textCardTaskId() && index.byId.get(textCardTaskId());
+  if (textCardTaskId() && (!shown || shown.deletedAt)) closeTextCard();
   applyTheme(state.settings.theme, state.settings.palette);
   render();
 }

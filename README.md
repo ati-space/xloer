@@ -148,7 +148,17 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
   en yeniden eskiye. Güncellemeden sonra düğmede nokta belirir.
 - Bugün / Sonraki 7 Gün, etiketler, öncelik (bayrak), bitiş tarihi, açıklama.
 - Tamamlanan ve Çöp Kutusu (geri yükleme), silme/tamamlama için “Geri al”.
-- Yeni görev yazarken `#etiket` kullanılabilir. Satıra çift tıkla: yeniden adlandır.
+- **Tamamlama:** bir raporun son adımı tamamlanınca rapor da tamamlanır ve listeden
+  “Tamamlanan”a geçer (“Geri al” ikisini geri açar); yeniden açılan rapor adımlarını
+  olduğu gibi bırakır. Biten adımlar, raporları açık oldukça yerinde üstü çizili
+  durur. “Tamamlananları göster” açıkken biten raporlar listenin sonunda toplanır.
+- **Tarih ve saat:** satıra sağ tık → Tarih → “Tarih ve saat…” (ayrıntı panelinde
+  tarih düğmesi): takvimden gün, ayrı alanlarda saat ve dakika; geçmiş bir an
+  seçilemez. Zamanı gelince Windows bildirimi çıkar (portable’da tepsi balonu).
+- **Widget’ta çift tık:** görevin başlığı ve açıklaması küçük bir kartta tam görünür
+  ve düzenlenir; Esc ya da dışarı tıklama kapatır.
+- Yeni görev yazarken `#etiket` kullanılabilir. Ana pencerede satıra çift tıkla:
+  yeniden adlandır (her yerde F2).
   Bölümde `+` ile ekleyip `Enter`’a basınca bir sonraki satır açılır.
 - Pencereyi kapatınca sistem tepsisinde çalışmaya devam eder (Ayarlar’dan kapatılabilir).
 - Ayarlar → “Windows açılışında başlat”: oturum açılınca yalnızca widget gelir.

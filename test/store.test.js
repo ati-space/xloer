@@ -104,6 +104,56 @@ test('completing a parent completes subtasks; reopening a subtask reopens the pa
   assert.equal(kids[1].done, true);
 });
 
+// A report with two steps, and a deeper step under the second.
+function reportWithSteps() {
+  const s = emptyState();
+  const listId = dispatch(s, { type: 'list/create', name: 'Work' });
+  const report = dispatch(s, { type: 'task/create', listId, title: 'Rapor' });
+  const a = dispatch(s, { type: 'task/create', parentId: report, title: 'Adım 1' });
+  const b = dispatch(s, { type: 'task/create', parentId: report, title: 'Adım 2' });
+  const b1 = dispatch(s, { type: 'task/create', parentId: b, title: 'Adım 2.1' });
+  const get = (id) => s.tasks.find((t) => t.id === id);
+  return { s, report: get(report), a: get(a), b: get(b), b1: get(b1) };
+}
+
+test('completing the last open subtask completes its parent, and upwards', () => {
+  const { s, report, a, b, b1 } = reportWithSteps();
+  assert.deepEqual(dispatch(s, { type: 'task/toggle', id: a.id, done: true }), { parents: [] });
+  assert.equal(report.done, false, 'one step still open: the report stays open');
+  const r = dispatch(s, { type: 'task/toggle', id: b1.id, done: true });
+  assert.ok(b.done && report.done, 'the last step completes its step, which completes the report');
+  assert.deepEqual(r.parents, [b.id, report.id]);
+  // "Geri al": reopening the step reopens what it completed, not its sibling.
+  dispatch(s, { type: 'task/toggle', id: b1.id, done: false });
+  assert.ok(!b1.done && !b.done && !report.done);
+  assert.equal(a.done, true);
+});
+
+test('reopening a parent keeps its subtasks as they are', () => {
+  const { s, report, a, b, b1 } = reportWithSteps();
+  dispatch(s, { type: 'task/toggle', id: a.id, done: true });
+  dispatch(s, { type: 'task/toggle', id: b.id, done: true });
+  assert.ok(report.done);
+  dispatch(s, { type: 'task/toggle', id: report.id, done: false });
+  assert.equal(report.done, false);
+  assert.ok(a.done && b.done && b1.done);
+});
+
+test('a due time goes with a due date and is dropped with it', () => {
+  const { s, a } = reportWithSteps();
+  dispatch(s, { type: 'task/update', id: a.id, patch: { due: '2026-11-14', dueTime: '14:30' } });
+  assert.deepEqual([a.due, a.dueTime], ['2026-11-14', '14:30']);
+  dispatch(s, { type: 'task/update', id: a.id, patch: { dueTime: '25:00' } });
+  assert.equal(a.dueTime, null, 'not a time of day');
+  dispatch(s, { type: 'task/update', id: a.id, patch: { dueTime: '09:05' } });
+  dispatch(s, { type: 'task/update', id: a.id, patch: { due: null } });
+  assert.deepEqual([a.due, a.dueTime], [null, null]);
+  dispatch(s, { type: 'task/reminded', id: a.id, at: '2026-11-14 14:30' });
+  const back = normalizeState(JSON.parse(JSON.stringify(s))).tasks.find((t) => t.id === a.id);
+  assert.equal(back.remindedFor, '2026-11-14 14:30');
+  assert.equal(normalizeState({ ...s, tasks: [{ ...a, due: null, dueTime: '10:00' }] }).tasks[0].dueTime, null);
+});
+
 test('delete, restore and purge work on whole subtrees', () => {
   const s = seedState();
   const work = workList(s);
