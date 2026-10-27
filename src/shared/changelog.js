@@ -8,6 +8,14 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.17.1',
+    date: '2026-10-27',
+    title: 'Biten raporlar her seviyede gizlenir',
+    items: [
+      ['fix', 'Bir görevin altındaki tamamlanmış rapor (kendi adımları olan görev) artık listede kalmaz, “Tamamlanan”a geçer; yalnız tamamlanmış adımlar yerinde üstü çizili görünür'],
+    ],
+  },
+  {
     version: '1.17.0',
     date: '2026-10-27',
     title: 'Biten raporlar, widget metin kartı, tarih ve saat',

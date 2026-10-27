@@ -29,8 +29,10 @@ function sectionRow(list, sec, count) {
 }
 
 // The tree of one list: unsectioned tasks first, then every section with its
-// tasks. Completed subtasks stay in place under their open parent. Completed
-// top-level tasks leave the tree; when the list shows completed tasks they
+// tasks. A completed step (a done task without subtasks) stays in place,
+// struck through, under its open parent. A completed task with subtasks of
+// its own (a finished report, at any level) leaves the tree, and so does
+// every completed top-level task; when the list shows completed tasks they
 // come last, under "Tamamlanan", newest first (rows marked doneGroup, which
 // are not dragged or dropped on).
 export function buildListRows(state, listId, opts = {}) {
@@ -38,27 +40,30 @@ export function buildListRows(state, listId, opts = {}) {
   if (!list) return [];
   const index = opts.index ?? buildIndex(state);
   const showDone = opts.showCompleted ?? list.showCompleted;
+  const finished = [];
+  const stays = (t) => !t.done || !index.children(t.id).length;
   const rows = [];
   const push = (t, depth, extra = {}) => {
-    const kids = index.children(t.id);
+    const all = index.children(t.id);
+    const kids = extra.doneGroup ? all : all.filter(stays);
+    if (!extra.doneGroup) finished.push(...all.filter((c) => !stays(c)));
     rows.push(taskRow(t, depth, index, { childCount: kids.length, collapsed: t.collapsed && kids.length > 0, ...extra }));
     if (!t.collapsed) for (const c of kids) push(c, depth + 1, extra);
   };
-  const open = (t) => !t.done && push(t, 0);
+  const open = (t) => (t.done ? finished.push(t) : push(t, 0));
   for (const t of index.roots(listId, null)) open(t);
   for (const sec of list.sections) {
     const roots = index.roots(listId, sec.id);
     rows.push(sectionRow(list, sec, roots.filter((t) => !t.done).length));
-    if (!sec.collapsed) for (const t of roots) open(t);
-  }
-  if (showDone) {
-    const done = [null, ...list.sections.map((sec) => sec.id)]
-      .flatMap((sec) => index.roots(listId, sec).filter((t) => t.done))
-      .sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0));
-    if (done.length) {
-      rows.push({ kind: 'group', key: 'g:done', id: 'done', label: 'Tamamlanan', count: done.length });
-      for (const t of done) push(t, 0, { doneGroup: true });
+    for (const t of roots) {
+      if (!sec.collapsed) open(t);
+      else if (t.done) finished.push(t);
     }
+  }
+  if (showDone && finished.length) {
+    finished.sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0));
+    rows.push({ kind: 'group', key: 'g:done', id: 'done', label: 'Tamamlanan', count: finished.length });
+    for (const t of finished) push(t, 0, { doneGroup: true });
   }
   return rows;
 }
