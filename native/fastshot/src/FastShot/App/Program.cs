@@ -13,31 +13,16 @@ public static class Program
             return 0;
         }
 
-        // Only the file wheel, for another app (Xloer) that passes its process id; see WheelHost.
-        var host = Array.IndexOf(args, WheelHost.Argument);
-        if (host >= 0)
-        {
-            if (host + 1 >= args.Length || !int.TryParse(args[host + 1], out var parent)) return 2;
-            using var hostMutex = new Mutex(true, $@"Local\FastShot.WheelHost.{parent}", out var firstHost);
-            if (!firstHost) return 0;
-            var hostApp = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-            Theme.Apply(hostApp);
-            hostApp.DispatcherUnhandledException += (_, e) =>
-            {
-                Log(e.Exception);
-                e.Handled = true;
-            };
-            TaskScheduler.UnobservedTaskException += (_, e) =>
-            {
-                Log(e.Exception);
-                e.SetObserved();
-            };
-            hostApp.Startup += (_, _) => WheelHost.Run(hostApp, parent);
-            return hostApp.Run();
-        }
-
+        // Run inside another app (Xloer), which passes its process id; see Embedding.
+        var embedding = Embedding.From(ref args);
         using var mutex = new Mutex(true, @"Local\FastShot.SingleInstance", out var firstInstance);
-        if (!firstInstance)
+        embedding?.Listen();
+        if (!firstInstance && embedding is not null)
+        {
+            // A standalone FastShot is running and does everything already; take over once it quits.
+            if (!WaitForTurn(mutex, embedding)) return 0;
+        }
+        else if (!firstInstance)
         {
             // Opening FastShot again shows its settings (or opens the file it was given) in the copy already running.
             // Explorer's "FastShot çarkı" starts one copy per selected item; each hands its path over.
@@ -65,9 +50,26 @@ public static class Program
             Log(e.Exception);
             e.SetObserved();
         };
-        var controller = new AppController(args);
+        var controller = new AppController(args, embedding);
         app.Startup += (_, _) => controller.Launch();
         return app.Run();
+    }
+
+    /// <summary>Waits for the running FastShot to quit, then owns the single-instance mutex. False when the host went first.</summary>
+    static bool WaitForTurn(Mutex mutex, Embedding embedding)
+    {
+        while (!embedding.HostGone)
+        {
+            try
+            {
+                if (mutex.WaitOne(1000)) return true;
+            }
+            catch (AbandonedMutexException)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     static void Log(Exception error)

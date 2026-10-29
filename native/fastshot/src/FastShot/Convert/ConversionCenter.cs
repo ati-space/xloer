@@ -48,7 +48,7 @@ public sealed class ConversionCenter
         switch (tool)
         {
             case FileTool.Edit:
-                foreach (var file in files) WheelHost.OpenInEditor(file);
+                foreach (var file in files) AppController.Shared.Open(file);
                 break;
             case FileTool.Crop:
                 CropWindow.Show(files[0]);

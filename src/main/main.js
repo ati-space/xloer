@@ -13,7 +13,7 @@ import { seedState } from '../shared/seed.js';
 import { paletteOf } from '../shared/themes.js';
 import { parseTasksCsv } from '../shared/tasks-csv.js';
 import { createStorage } from './storage.js';
-import { createFileWheel } from './file-wheel.js';
+import { createFastShot } from './fastshot.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const RENDERER = path.join(here, '..', 'renderer');
@@ -32,7 +32,7 @@ let mainWin = null;
 let widgetWin = null;
 let tray = null;
 let updater = null;
-let fileWheel = null;
+let fastshot = null;
 let quitting = false;
 // What the main window should show once it has loaded: {type:'task', id} or {type:'update'}.
 let pendingNav = null;
@@ -83,7 +83,7 @@ function start() {
 async function startRest() {
   createTray();
   // Not in the self-test: the checked installers run without anyone dragging files.
-  if (!selfTest) fileWheel = createFileWheel();
+  if (!selfTest) fastshot = createFastShot({ onState: () => updateTrayMenu() });
   applySettings(null);
   // electron-updater and its dependencies load only now.
   const { createUpdater } = await import('./updater.js');
@@ -180,7 +180,7 @@ function remind(t) {
 app.on('before-quit', () => {
   quitting = true;
   storage?.flush();
-  fileWheel?.stop();
+  fastshot?.stop();
 });
 // The tray keeps the app alive; quitting goes through the tray menu.
 app.on('window-all-closed', () => {});
@@ -226,7 +226,7 @@ function applySettings(prev) {
   }
   if (!prev || prev.startWithWindows !== s.startWithWindows) updateLoginItem();
   if (!prev || prev.autoUpdate !== s.autoUpdate) updater?.setAutomatic(s.autoUpdate);
-  if (!prev || prev.fileWheel !== s.fileWheel) fileWheel?.set(s.fileWheel);
+  if (!prev || prev.fastshot !== s.fastshot) fastshot?.set(s.fastshot);
   updateThemeColors();
   updateTrayMenu();
 }
@@ -491,6 +491,7 @@ function updateTrayMenu() {
       { label: 'Widget’ı göster', type: 'checkbox', checked: w.visible, click: (item) => setWidget({ visible: item.checked }) },
       { label: 'Widget her zaman üstte', type: 'checkbox', checked: w.alwaysOnTop, click: (item) => setWidget({ alwaysOnTop: item.checked }) },
       { label: 'Widget konumunu kilitle', type: 'checkbox', checked: w.locked, click: (item) => setWidget({ locked: item.checked }) },
+      ...fastshotMenu(),
       { type: 'separator' },
       {
         label: 'Çıkış',
@@ -501,6 +502,30 @@ function updateTrayMenu() {
       },
     ]),
   );
+}
+
+// FastShot's commands (src/main/fastshot.js), as in its own tray menu.
+function fastshotMenu() {
+  if (!fastshot?.running) return [];
+  const { screenshot, record, recording } = fastshot.state;
+  const run = (name) => () => fastshot.command(name);
+  const withKeys = (label, keys) => (keys ? `${label}  (${keys})` : label);
+  return [
+    { type: 'separator' },
+    { label: withKeys('Ekran görüntüsü al', screenshot), click: run('screenshot') },
+    { label: recording ? 'Kaydı bitir' : withKeys('Alanı videoya kaydet', record), click: run('record') },
+    {
+      label: 'FastShot',
+      submenu: [
+        { label: 'Son yakalamayı düzenle', click: run('edit-last') },
+        { label: 'Geçmiş…', click: run('history') },
+        { label: 'Görüntü veya video aç…', click: run('open') },
+        { label: 'Dosya çarkı…', click: run('wheel') },
+        { type: 'separator' },
+        { label: 'FastShot ayarları…', click: run('settings') },
+      ],
+    },
+  ];
 }
 
 function trayHint() {

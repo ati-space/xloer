@@ -80,29 +80,23 @@ public sealed class Preferences
         public bool Onboarded;
     }
 
-    Data data;
+    readonly Data data;
     readonly object gate = new();
 
     Preferences(Data data) { this.data = data; }
 
-    static Preferences Load() => new(Read() ?? new Data());
-
-    static Data? Read()
+    static Preferences Load()
     {
         try
         {
-            if (File.Exists(Path)) return JsonSerializer.Deserialize<Data>(File.ReadAllText(Path), jsonOptions);
+            if (File.Exists(Path))
+            {
+                var loaded = JsonSerializer.Deserialize<Data>(File.ReadAllText(Path), jsonOptions);
+                if (loaded is not null) return new Preferences(loaded);
+            }
         }
-        catch { /* corrupt or half-written settings fall back */ }
-        return null;
-    }
-
-    /// <summary>Picks up settings another FastShot process saved (the wheel host follows the app's settings).</summary>
-    public void Reload()
-    {
-        if (Read() is not { } loaded) return;
-        data = loaded;
-        Changed?.Invoke();
+        catch { /* corrupt settings fall back to defaults */ }
+        return new Preferences(new Data());
     }
 
     void Set<T>(ref T field, T value)

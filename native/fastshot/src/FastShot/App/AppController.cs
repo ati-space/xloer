@@ -4,19 +4,19 @@ using Forms = System.Windows.Forms;
 
 namespace FastShot;
 
-/// <summary>Tray app: owns the shortcuts, the notification-area icon and every window.</summary>
+/// <summary>Tray app: owns the shortcuts, the notification-area icon and every window. Inside another app
+/// (<see cref="Embedding"/>) the icon stays hidden and the host's menu gives the same commands.</summary>
 public sealed class AppController
 {
     static AppController? shared;
     public static AppController Shared => shared ?? throw new InvalidOperationException("FastShot is not running.");
-    /// <summary>Null in --wheel-host, where only the file wheel runs.</summary>
-    public static AppController? Current => shared;
 
     public ProjectLibrary Library { get; } = new();
     public event Action? LibraryChanged;
 
     readonly Preferences prefs = Preferences.Shared;
     readonly string[] launchArguments;
+    readonly Embedding? embedding;
     readonly List<EditorWindow> editors = [];
     readonly DispatcherTimer hotkeyDebounce = new() { Interval = TimeSpan.FromMilliseconds(150) };
     Forms.NotifyIcon tray = null!;
@@ -29,11 +29,15 @@ public sealed class AppController
     LibraryWindow? libraryWindow;
     bool startingCapture;
 
-    public AppController(string[] arguments)
+    public AppController(string[] arguments, Embedding? embedding = null)
     {
         shared = this;
         launchArguments = arguments;
+        this.embedding = embedding;
     }
+
+    /// <summary>Runs inside another app (Xloer) with no tray icon of its own.</summary>
+    public bool Embedded => embedding is not null;
 
     public void Launch()
     {
@@ -43,6 +47,8 @@ public sealed class AppController
         center.OnReopen = () => OpenSettings(SettingsTab.Shortcuts);
         center.OnOpenFile = Open;
         center.OnConvertFile = QueueConversion;
+        center.OnCommand = RunCommand;
+        if (Embedded) TakePrintScreenOnce();
         RegisterHotkeys();
         convertDebounce.Tick += (_, _) =>
         {
@@ -57,6 +63,7 @@ public sealed class AppController
             RegisterHotkeys();
             UpdateMenuShortcuts();
             ApplyShellIntegration();
+            ReportState();
         };
         prefs.Changed += () =>
         {
@@ -66,6 +73,13 @@ public sealed class AppController
         DragMonitor.Shared.Start();
         ApplyShellIntegration();
         WarmUpConverters();
+        if (embedding is not null)
+        {
+            embedding.Attach(this, Application.Current.Dispatcher);
+            ReportState();
+            // The host explains FastShot in its own words.
+            prefs.Onboarded = true;
+        }
         var files = launchArguments.Where(a => !a.StartsWith('-')).ToList();
         if (launchArguments.Contains("--convert"))
         {
@@ -243,6 +257,46 @@ public sealed class AppController
     {
         tray.Icon = active ? recordingIcon : idleIcon;
         tray.Text = active ? "FastShot · Kaydı bitirmek için tıklayın" : "FastShot";
+        ReportState();
+    }
+
+    // MARK: Inside another app
+
+    /// <summary>The host's menu items: the same commands as the tray menu.</summary>
+    public void RunCommand(string command)
+    {
+        switch (command)
+        {
+            case "screenshot": TakeScreenshot(); break;
+            case "record": RecordVideo(); break;
+            case "edit-last": EditLastCapture(); break;
+            case "history": ShowLibrary(); break;
+            case "open": OpenFile(); break;
+            case "wheel": ConversionCenter.Shared.ChooseFiles(); break;
+            case "settings": OpenSettings(); break;
+        }
+    }
+
+    void ReportState() => embedding?.Report(Shortcuts(prefs.ScreenshotHotkeyAlt, prefs.ScreenshotHotkey), Shortcuts(prefs.RecordHotkeyAlt, prefs.RecordHotkey), recording is not null);
+
+    /// <summary>"Print Screen / Ctrl+Shift+2", or null when neither is set.</summary>
+    static string? Shortcuts(params KeyCombo?[] combos)
+    {
+        var text = string.Join(" / ", combos.Where(c => c is not null).Select(c => c!.DisplayString));
+        return text.Length > 0 ? text : null;
+    }
+
+    /// <summary>Windows 11 gives Print Screen to the Snipping Tool. Inside Xloer, Print Screen should simply take a FastShot
+    /// screenshot, so it is taken over once; Settings › Kısayollar gives it back ("Windows'a geri ver").</summary>
+    void TakePrintScreenOnce()
+    {
+        if (prefs.PrintScreenTakenOver || !PrintScreenSetting.OpensSnippingTool) return;
+        try
+        {
+            PrintScreenSetting.OpensSnippingTool = false;
+            prefs.PrintScreenTakenOver = true;
+        }
+        catch { /* the shortcut warning in Settings explains it */ }
     }
 
     // MARK: Editors and windows
@@ -388,7 +442,7 @@ public sealed class AppController
         menu.Opening += (_, _) => lastCaptureItem.Enabled = Library.AllProjects().Count > 0;
         UpdateMenuShortcuts();
 
-        tray = new Forms.NotifyIcon { Icon = idleIcon, Text = "FastShot", Visible = true, ContextMenuStrip = menu };
+        tray = new Forms.NotifyIcon { Icon = idleIcon, Text = "FastShot", Visible = !Embedded, ContextMenuStrip = menu };
         tray.MouseUp += (_, e) =>
         {
             if (e.Button != Forms.MouseButtons.Left) return;

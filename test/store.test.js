@@ -279,10 +279,14 @@ test('stages: added, renamed, reordered, removed with undo; old files keep their
   assert.equal(normalizeState(structuredClone(s)).tasks.find((x) => x.id === t).stage, 's3', 'saved and loaded again');
 });
 
-test('the file wheel is on unless turned off, and stays off once turned off', () => {
-  assert.equal(normalizeState({ lists: [], tasks: [] }).settings.fileWheel, true);
+test('FastShot is on unless turned off, and stays off once turned off', () => {
+  assert.equal(normalizeState({ lists: [], tasks: [] }).settings.fastshot, true);
   const s = normalizeState({ lists: [], tasks: [] });
-  dispatch(s, { type: 'settings/update', patch: { fileWheel: false } });
-  assert.equal(normalizeState(structuredClone(s)).settings.fileWheel, false, 'saved and loaded again');
-  assert.equal(normalizeState({ lists: [], tasks: [], settings: { fileWheel: 'yes' } }).settings.fileWheel, true);
+  dispatch(s, { type: 'settings/update', patch: { fastshot: false } });
+  assert.equal(normalizeState(structuredClone(s)).settings.fastshot, false, 'saved and loaded again');
+  assert.equal(normalizeState({ lists: [], tasks: [], settings: { fastshot: 'yes' } }).settings.fastshot, true);
+  // 1.21.0's file wheel setting carries over.
+  const old = normalizeState({ lists: [], tasks: [], settings: { fileWheel: false } }).settings;
+  assert.equal(old.fastshot, false);
+  assert.equal('fileWheel' in old, false);
 });

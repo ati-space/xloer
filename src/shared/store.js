@@ -36,8 +36,8 @@ export function defaultSettings() {
     closeToTray: true,
     startWithWindows: false,
     autoUpdate: true,
-    // FastShot's file wheel while Xloer runs (src/main/file-wheel.js).
-    fileWheel: true,
+    // FastShot (screenshots, recording, the file wheel) while Xloer runs (src/main/fastshot.js).
+    fastshot: true,
     trayHintShown: false,
     // 1.18.0 merged test systems once; 1.19.0 undid some of it, 1.20.0 the
     // rest, putting names of one system under its main name (device/repair-names).
@@ -119,7 +119,8 @@ function normalizeSettings(raw = {}) {
     closeToTray: typeof raw.closeToTray === 'boolean' ? raw.closeToTray : d.closeToTray,
     startWithWindows: !!raw.startWithWindows,
     autoUpdate: typeof raw.autoUpdate === 'boolean' ? raw.autoUpdate : d.autoUpdate,
-    fileWheel: typeof raw.fileWheel === 'boolean' ? raw.fileWheel : d.fileWheel,
+    // 1.21.0 called it fileWheel and ran only the file wheel.
+    fastshot: typeof raw.fastshot === 'boolean' ? raw.fastshot : typeof raw.fileWheel === 'boolean' ? raw.fileWheel : d.fastshot,
     trayHintShown: !!raw.trayHintShown,
     devicesMergedByName: !!raw.devicesMergedByName,
     devicesRepaired: !!raw.devicesRepaired,

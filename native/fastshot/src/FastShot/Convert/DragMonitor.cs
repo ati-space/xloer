@@ -5,9 +5,7 @@ using FastShot.Core.Convert;
 namespace FastShot;
 
 /// <summary>Notices when files are being dragged in Explorer or on the desktop and the trigger key is tapped meanwhile.
-/// It polls the mouse button and the key (no hooks, no permissions), then reads the dragged files from Explorer's selection.
-/// FastShot and the wheel it runs inside other apps (--wheel-host, e.g. for Xloer) may run at once; a shared mutex lets
-/// only one of them watch, so a drag never opens two wheels. The other takes over when the watching one quits.</summary>
+/// It polls the mouse button and the key (no hooks, no permissions), then reads the dragged files from Explorer's selection.</summary>
 public sealed class DragMonitor
 {
     public static DragMonitor Shared { get; } = new();
@@ -22,42 +20,10 @@ public sealed class DragMonitor
     Native.POINT pressPoint;
     IntPtr pressWindow;
 
-    readonly Mutex watcher = new(false, @"Local\FastShot.Wheel");
-    readonly DispatcherTimer claim = new() { Interval = TimeSpan.FromSeconds(2) };
-    bool watching;
+    DragMonitor() => timer.Tick += (_, _) => Tick();
 
-    DragMonitor()
-    {
-        timer.Tick += (_, _) => Tick();
-        claim.Tick += (_, _) => Claim();
-    }
-
-    public void Start()
-    {
-        Claim();
-        if (!watching) claim.Start();
-    }
-
-    public void Stop()
-    {
-        claim.Stop();
-        timer.Stop();
-        if (!watching) return;
-        watching = false;
-        try { watcher.ReleaseMutex(); }
-        catch (ApplicationException) { /* not held */ }
-    }
-
-    /// <summary>Takes over watching when no other FastShot process does. Runs on the UI thread, which then owns the mutex.</summary>
-    void Claim()
-    {
-        if (watching) return;
-        try { watching = watcher.WaitOne(0); }
-        catch (AbandonedMutexException) { watching = true; }
-        if (!watching) return;
-        claim.Stop();
-        timer.Start();
-    }
+    public void Start() => timer.Start();
+    public void Stop() => timer.Stop();
 
     static bool Down(int key) => (GetAsyncKeyState(key) & 0x8000) != 0;
 

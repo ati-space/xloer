@@ -8,6 +8,17 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.22.0',
+    date: '2026-10-29',
+    title: 'Ekran görüntüsü ve ekran kaydı (FastShot)',
+    items: [
+      ['new', 'Xloer açıkken Print Screen (ya da Ctrl+Shift+2) ekran görüntüsü alır: alan seç, üzerine çiz, kopyala veya kaydet'],
+      ['new', 'Shift+Print Screen (ya da Ctrl+Shift+7) seçilen alanı videoya kaydeder; kayıt sırasında ekrana çizilebilir'],
+      ['new', 'Yakalamalar çizimleriyle Geçmiş’te saklanır ve yeniden düzenlenebilir; sistem tepsisi menüsünde ekran görüntüsü, kayıt ve FastShot (Geçmiş, dosya çarkı, ayarlar) var'],
+      ['better', 'Windows 11’de Print Screen’i Ekran Alıntısı Aracı kullanıyorsa ilk açılışta bir kez FastShot’a verilir; FastShot ayarları › Kısayollar › “Windows’a geri ver” ile geri alınır'],
+    ],
+  },
+  {
     version: '1.21.0',
     date: '2026-10-29',
     title: 'Dosya çarkı',

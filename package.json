@@ -1,7 +1,7 @@
 {
   "name": "xloer",
   "productName": "Xloer",
-  "version": "1.21.0",
+  "version": "1.22.0",
   "description": "Xloer: Windows masaüstü için görev, rapor ve fatura takip uygulaması",
   "author": "Mericsdc",
   "license": "Apache-2.0",
@@ -11,7 +11,7 @@
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
     "icon": "electron scripts/make-icon.js",
-    "wheel": "node scripts/build-wheel.js",
+    "fastshot": "node scripts/build-fastshot.js",
     "dist:win": "node scripts/release.js --build-only",
     "dist:zip": "electron-builder --win zip --x64",
     "release": "node scripts/release.js"

@@ -51,8 +51,8 @@ const notes = path.join(root, 'build', 'release-notes.md');
 fs.writeFileSync(notes, notesText);
 
 fs.rmSync(dist, { recursive: true, force: true });
-// FastShot's file wheel (src/main/file-wheel.js), shipped in resources/fastshot.
-run(process.execPath, [path.join(root, 'scripts', 'build-wheel.js')]);
+// FastShot (src/main/fastshot.js), shipped in resources/fastshot.
+run(process.execPath, [path.join(root, 'scripts', 'build-fastshot.js')]);
 // Through node itself so it runs the same on macOS and on the Windows CI runner.
 run(process.execPath, [path.join(root, 'node_modules', 'electron-builder', 'cli.js'), '--win', 'nsis', '--x64', '--publish', 'never']);
 

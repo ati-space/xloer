@@ -94,6 +94,9 @@ public sealed class HotKeyCenter
     /// <summary>A file or folder handed over by "FastShot çarkı" in a second copy of FastShot.</summary>
     public Action<string>? OnConvertFile { get; set; }
     public const string ConvertPrefix = "convert:";
+    /// <summary>A menu command (screenshot, record, …) an embedded FastShot passes on while this one runs; see Embedding.</summary>
+    public Action<string>? OnCommand { get; set; }
+    public const string CommandPrefix = "command:";
 
     /// <summary>Shortcuts that could not be registered because another app already owns them.</summary>
     public HashSet<KeyCombo> Failed { get; } = [];
@@ -135,6 +138,8 @@ public sealed class HotKeyCenter
                 var path = Marshal.PtrToStringUni(data.Pointer, data.Length / 2).TrimEnd('\0');
                 if (path.StartsWith(ConvertPrefix, StringComparison.Ordinal))
                     Application.Current.Dispatcher.BeginInvoke(() => OnConvertFile?.Invoke(path[ConvertPrefix.Length..]));
+                else if (path.StartsWith(CommandPrefix, StringComparison.Ordinal))
+                    Application.Current.Dispatcher.BeginInvoke(() => OnCommand?.Invoke(path[CommandPrefix.Length..]));
                 else
                     Application.Current.Dispatcher.BeginInvoke(() => OnOpenFile?.Invoke(path));
             }
