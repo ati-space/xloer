@@ -1070,6 +1070,11 @@ async function openSettings() {
       <label class="check-row"><input type="checkbox" data-set="startWithWindows" ${checked(s.startWithWindows)}><span>Windows açılışında başlat (yalnızca widget açılır)</span></label>
     </section>
     <section>
+      <h3>Dosya çarkı</h3>
+      <label class="check-row"><input type="checkbox" data-set="fileWheel" ${checked(s.fileWheel)}><span>Dosya sürüklerken Shift ile dosya çarkını aç</span></label>
+      <p class="hint">Gezgin’de veya masaüstünde dosyaları sürüklerken Shift’e bir kez basın: imlecin etrafında Dönüştür çarkı açılır. Shift’e tekrar bastıkça Araçlar (kırp, sıkıştır, meta veri sil, PDF birleştir…) ve İşlemler (ZIP, paylaş, panoya kopyala, terminal) çarklarına geçersiniz. Seçeneğin üzerine bırakın; sonuç yeni bir dosya olarak kaydedilir, orijinaller değişmez. Xloer açık olduğu sürece çalışır.</p>
+    </section>
+    <section>
       <h3>Masaüstü widget’ı</h3>
       <label class="check-row"><input type="checkbox" data-w="visible" ${checked(w.visible)}><span>Widget’ı göster</span></label>
       <label class="check-row"><input type="checkbox" data-w="locked" ${checked(w.locked)}><span>Masaüstündeki yerini ve boyutunu sabitle (widget’taki iğne)</span></label>

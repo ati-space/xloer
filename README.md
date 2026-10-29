@@ -128,6 +128,23 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
   takvim günü (aynı gün iki test bir gün) ve vardiya (gün × 3). Aya taşan testler
   ay sınırında bölünür. İpucunda doluluk oranı, test ve proje sayısı görünür.
 
+**Dosya çarkı**
+- Gezgin’de veya masaüstünde dosyaları (ya da klasörleri) sürüklerken **Shift**’e bir
+  kez basın: imlecin etrafında **Dönüştür** çarkı açılır. Seçeneğin üzerine bırakın.
+- Shift’e tekrar bastıkça **Araçlar** ve **İşlemler** çarklarına geçilir; halkanın
+  üstündeki çubukta bir an beklemek de o çarkı açar.
+  - Dönüştür: görüntü (PNG, JPEG, HEIC, PDF, TIFF, GIF, BMP), video (MP4, HEVC, GIF,
+    ses çıkarma), ses (M4A, MP3, WAV, AIFF, FLAC), PDF (sayfa görüntüleri, TXT, RTF,
+    DOCX), belge (PDF, DOCX, RTF, TXT, HTML, ODT).
+  - Araçlar: düzenle, kırp (oranlarla), arka plan, sıkıştır, meta veri sil, metni
+    kopyala (OCR), sesi kaldır, PDF’leri birleştir.
+  - İşlemler: ZIP’le / ZIP’i aç, paylaş (Yakındaki paylaşım), panoya kopyala, yolu
+    kopyala, ekrana sabitle, terminalde aç.
+- Orijinal dosyalar değişmez; sonuç yanlarına yeni dosya olarak kaydedilir
+  (`foto (küçük).jpg`, `rapor (birleşik).pdf`, `Arşiv.zip`…).
+- Xloer açık olduğu sürece çalışır. Ayarlar › Dosya çarkı’ndan kapatılabilir.
+  FastShot da açıksa çarkı o gösterir; ikisi aynı anda açılmaz.
+
 **Diğer**
 - **Aşamalar:** kenar çubuğunda “Aşama”nın yanındaki kalem: yeni aşama ekle, adını
   değiştir, ↑/↓ ile sırala, sil. Raporlar aşamalarında kalır; silinen aşamanın
@@ -232,6 +249,7 @@ npm install
 npm start          # uygulamayı çalıştır (F12: geliştirici araçları)
 npm test           # veri modeli, sürükle-bırak hesapları, arama, CSV testleri
 npm run icon       # build/logo.png’den uygulama simgelerini yeniden üret
+npm run wheel      # dosya çarkını (native/fastshot) native/out/FastShot.exe olarak derle (.NET 10 SDK)
 npm run dist:win   # dist/ altına Windows kurulum + portable exe (yayınlamadan)
 npm run dist:zip   # dist/ altına Windows ZIP paketi
 npm run release    # derle ve bu depoda yeni sürüm olarak yayınla
@@ -254,6 +272,13 @@ Dosyalar:
   electron-builder’ın NSIS derleyicisiyle derler.
 - `scripts/verify-win.js` — CI’da yayından önce kurulumu ve portable exe’yi açıp
   denetler.
+- `native/fastshot/` — dosya çarkı: FastShot for Windows’un kaynağı (C#, .NET 10,
+  WPF). `npm run wheel` (ve `scripts/release.js`) bunu tek dosyalık, .NET kurulu
+  olmayan bilgisayarda da çalışan `native/out/FastShot.exe` olarak derler; kurulum
+  onu `resources/fastshot/` altına koyar. Xloer onu `--wheel-host <pid>` ile başlatır
+  (`src/main/file-wheel.js`); Xloer kapanınca kendisi de kapanır. Güncellemek için
+  FastShot-Windows’taki `src/FastShot` ve `src/FastShot.Core` klasörlerini buraya
+  kopyalayın. `npm start` çarkı `native/out` altında derlenmişse başlatır.
 - `build/logo.png` — logonun kaynağı (beyaz, saydam zemin). `npm run icon` bundan
   `build/icon.png` ve `src/renderer/img/logo.png` üretir.
 - `src/renderer/` — arayüz. `index.html` ana pencere, `widget.html` widget.

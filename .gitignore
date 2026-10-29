@@ -4,3 +4,7 @@ dist/
 *.log
 # Written by scripts/release.js from src/shared/changelog.js
 build/release-notes.md
+# Written by scripts/build-wheel.js
+native/out/
+native/**/bin/
+native/**/obj/

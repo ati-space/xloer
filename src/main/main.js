@@ -13,6 +13,7 @@ import { seedState } from '../shared/seed.js';
 import { paletteOf } from '../shared/themes.js';
 import { parseTasksCsv } from '../shared/tasks-csv.js';
 import { createStorage } from './storage.js';
+import { createFileWheel } from './file-wheel.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const RENDERER = path.join(here, '..', 'renderer');
@@ -31,6 +32,7 @@ let mainWin = null;
 let widgetWin = null;
 let tray = null;
 let updater = null;
+let fileWheel = null;
 let quitting = false;
 // What the main window should show once it has loaded: {type:'task', id} or {type:'update'}.
 let pendingNav = null;
@@ -80,6 +82,8 @@ function start() {
 
 async function startRest() {
   createTray();
+  // Not in the self-test: the checked installers run without anyone dragging files.
+  if (!selfTest) fileWheel = createFileWheel();
   applySettings(null);
   // electron-updater and its dependencies load only now.
   const { createUpdater } = await import('./updater.js');
@@ -176,6 +180,7 @@ function remind(t) {
 app.on('before-quit', () => {
   quitting = true;
   storage?.flush();
+  fileWheel?.stop();
 });
 // The tray keeps the app alive; quitting goes through the tray menu.
 app.on('window-all-closed', () => {});
@@ -221,6 +226,7 @@ function applySettings(prev) {
   }
   if (!prev || prev.startWithWindows !== s.startWithWindows) updateLoginItem();
   if (!prev || prev.autoUpdate !== s.autoUpdate) updater?.setAutomatic(s.autoUpdate);
+  if (!prev || prev.fileWheel !== s.fileWheel) fileWheel?.set(s.fileWheel);
   updateThemeColors();
   updateTrayMenu();
 }

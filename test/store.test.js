@@ -278,3 +278,11 @@ test('stages: added, renamed, reordered, removed with undo; old files keep their
   assert.equal(s.tasks.find((x) => x.id === t).stage, 's3');
   assert.equal(normalizeState(structuredClone(s)).tasks.find((x) => x.id === t).stage, 's3', 'saved and loaded again');
 });
+
+test('the file wheel is on unless turned off, and stays off once turned off', () => {
+  assert.equal(normalizeState({ lists: [], tasks: [] }).settings.fileWheel, true);
+  const s = normalizeState({ lists: [], tasks: [] });
+  dispatch(s, { type: 'settings/update', patch: { fileWheel: false } });
+  assert.equal(normalizeState(structuredClone(s)).settings.fileWheel, false, 'saved and loaded again');
+  assert.equal(normalizeState({ lists: [], tasks: [], settings: { fileWheel: 'yes' } }).settings.fileWheel, true);
+});

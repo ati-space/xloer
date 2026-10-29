@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- FastShot for Windows. WPF with the UI built in C# (no .xaml files).
+         dotnet run (in src/FastShot)
+       scripts/build.ps1 publishes build/FastShot.exe. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <RootNamespace>FastShot</RootNamespace>
+    <AssemblyName>FastShot</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <!-- Only for the tray icon (NotifyIcon) and the colour dialog. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon Condition="Exists('Assets\AppIcon.ico')">Assets\AppIcon.ico</ApplicationIcon>
+    <StartupObject>FastShot.Program</StartupObject>
+    <!-- WPF0001: the Fluent theme (Application.ThemeMode) is experimental. WFO0003: WPF needs the DPI setting in the manifest. -->
+    <NoWarn>$(NoWarn);WPF0001;WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WinForms is used by full name only; its implicit usings would clash with WPF types. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FastShot.Core\FastShot.Core.csproj" />
+  </ItemGroup>
+
+</Project>

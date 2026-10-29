@@ -8,6 +8,16 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.21.0',
+    date: '2026-10-29',
+    title: 'Dosya çarkı',
+    items: [
+      ['new', 'Gezgin’de veya masaüstünde dosya sürüklerken Shift’e basınca imlecin etrafında dosya çarkı açılır: dönüştür (görüntü, video, ses, PDF, belge biçimleri), araçlar (kırp, arka plan, sıkıştır, meta veri sil, metni kopyala, sesi kaldır, PDF birleştir) ve işlemler (ZIP, paylaş, panoya kopyala, yolu kopyala, ekrana sabitle, terminal)'],
+      ['new', 'Shift’e tekrar bastıkça çarklar arasında geçilir; sonuçlar yeni dosya olarak kaydedilir, orijinaller değişmez'],
+      ['new', 'Xloer açık olduğu sürece çalışır; Ayarlar › Dosya çarkı’ndan kapatılabilir'],
+    ],
+  },
+  {
     version: '1.20.0',
     date: '2026-10-27',
     title: 'Test sistemi adları: kapasite ayırt eder',

@@ -51,6 +51,8 @@ const notes = path.join(root, 'build', 'release-notes.md');
 fs.writeFileSync(notes, notesText);
 
 fs.rmSync(dist, { recursive: true, force: true });
+// FastShot's file wheel (src/main/file-wheel.js), shipped in resources/fastshot.
+run(process.execPath, [path.join(root, 'scripts', 'build-wheel.js')]);
 // Through node itself so it runs the same on macOS and on the Windows CI runner.
 run(process.execPath, [path.join(root, 'node_modules', 'electron-builder', 'cli.js'), '--win', 'nsis', '--x64', '--publish', 'never']);
 
@@ -58,7 +60,7 @@ const setup = `Xloer-Setup-${version}.exe`;
 const portable = `Xloer-Portable-${version}.exe`;
 const unpacked = path.join(dist, 'win-unpacked');
 const icon = path.join(dist, '.icon-ico', 'icon.ico');
-for (const f of [path.join(unpacked, 'Xloer.exe'), path.join(unpacked, 'resources', 'app.asar'), icon]) {
+for (const f of [path.join(unpacked, 'Xloer.exe'), path.join(unpacked, 'resources', 'app.asar'), path.join(unpacked, 'resources', 'fastshot', 'FastShot.exe'), icon]) {
   if (!fs.existsSync(f)) fail(`Derleme çıktısı eksik: ${path.relative(root, f)}`);
 }
 
