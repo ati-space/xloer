@@ -12,6 +12,7 @@
     "test": "node --test \"test/*.test.js\"",
     "icon": "electron scripts/make-icon.js",
     "fastshot": "node scripts/build-fastshot.js",
+    "sync-fastshot": "node scripts/sync-fastshot.js",
     "dist:win": "node scripts/release.js --build-only",
     "dist:zip": "electron-builder --win zip --x64",
     "release": "node scripts/release.js"

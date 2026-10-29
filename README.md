@@ -263,6 +263,7 @@ npm start          # uygulamayı çalıştır (F12: geliştirici araçları)
 npm test           # veri modeli, sürükle-bırak hesapları, arama, CSV testleri
 npm run icon       # build/logo.png’den uygulama simgelerini yeniden üret
 npm run fastshot   # FastShot’ı (native/fastshot) native/out/FastShot.exe olarak derle (.NET 10 SDK)
+npm run sync-fastshot  # FastShot’ı ../FastShot/windows’tan native/fastshot’a kopyala
 npm run dist:win   # dist/ altına Windows kurulum + portable exe (yayınlamadan)
 npm run dist:zip   # dist/ altına Windows ZIP paketi
 npm run release    # derle ve bu depoda yeni sürüm olarak yayınla
@@ -292,9 +293,11 @@ Dosyalar:
   koyar. Xloer onu `--embedded <pid>` ile, kendi tepsi simgesi olmadan başlatır
   (`src/main/fastshot.js`): tepsi menüsündeki komutları stdin’den satır satır alır,
   kısayollarını ve kayıt durumunu stdout’a JSON satırı olarak yazar; stdin kapanınca ya
-  da Xloer’in süreci bitince kapanır. Güncellemek için FastShot-Windows’taki
-  `src/FastShot` ve `src/FastShot.Core` klasörlerini buraya kopyalayın. `npm start`
-  FastShot’ı `native/out` altında derlenmişse başlatır.
+  da Xloer’in süreci bitince kapanır. FastShot’ın kendisi
+  [Mericsdc/FastShot](https://github.com/Mericsdc/FastShot) deposunun `windows/`
+  klasöründe geliştirilir; güncellemek için o depoyu Xloer’in yanına klonlayıp
+  `npm run sync-fastshot` çalıştırın (başka bir yerdeyse: `npm run sync-fastshot --
+  <yol>\windows`). `npm start` FastShot’ı `native/out` altında derlenmişse başlatır.
 - `build/logo.png` — logonun kaynağı (beyaz, saydam zemin). `npm run icon` bundan
   `build/icon.png` ve `src/renderer/img/logo.png` üretir.
 - `src/renderer/` — arayüz. `index.html` ana pencere, `widget.html` widget.

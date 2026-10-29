@@ -31,4 +31,9 @@
     <ProjectReference Include="..\FastShot.Core\FastShot.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The logo; AppIcon.cs draws every icon size from it, and scripts\make-icon.ps1 writes Assets\AppIcon.ico from it. -->
+    <EmbeddedResource Include="Assets\AppIcon.png" LogicalName="FastShot.AppIcon.png" />
+  </ItemGroup>
+
 </Project>
