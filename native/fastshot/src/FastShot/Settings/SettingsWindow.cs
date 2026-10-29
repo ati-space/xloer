@@ -384,26 +384,62 @@ public sealed class SettingsWindow : Window
         page.Children.Add(Note("Firefox'un çeviri motoru ve modelleri (Mozilla, MPL-2.0) bu bilgisayarda çalışır: anahtar ve hesap gerekmez, metin bilgisayardan çıkmaz. Bir dil yönünün modeli (yaklaşık 20 MB) ilk çeviride bir kez indirilir. Türkçe, İngilizce, Almanca, Fransızca, İspanyolca ve 25 dil daha; İngilizce dışındaki çiftler İngilizce üzerinden çevrilir. Microsoft Edge WebView2 gerekir (Windows 11'de ve güncel Windows 10'da yüklüdür)."));
 
         page.Children.Add(Section("DeepL"));
+        // A saved key is locked: the section says so and offers Değiştir / Sil; the box only shows to enter a key.
+        var changing = false;
+        var savedIcon = new IconView(Icons.Check, 16) { Brush = Theme.Accent, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+        var savedText = new TextBlock { Text = "API anahtarı girildi, DeepL kullanabilirsiniz.", FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        var change = new Button { Content = "Değiştir", Padding = new Thickness(12, 4, 12, 5), Margin = new Thickness(16, 0, 0, 0) };
+        var remove = new Button { Content = "Sil", Padding = new Thickness(12, 4, 12, 5), Margin = new Thickness(8, 0, 0, 0) };
+        var savedRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 4) };
+        savedRow.Children.Add(savedIcon);
+        savedRow.Children.Add(savedText);
+        savedRow.Children.Add(change);
+        savedRow.Children.Add(remove);
         var key = new PasswordBox { MinWidth = 280, VerticalAlignment = VerticalAlignment.Center };
         var save = new Button { Content = "Kaydet ve dene", Padding = new Thickness(12, 4, 12, 5), Margin = new Thickness(8, 0, 0, 0) };
-        var remove = new Button { Content = "Sil", Padding = new Thickness(12, 4, 12, 5), Margin = new Thickness(8, 0, 0, 0) };
-        var state = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
+        var cancel = new Button { Content = "Vazgeç", Padding = new Thickness(12, 4, 12, 5), Margin = new Thickness(8, 0, 0, 0) };
+        var keyRow = new StackPanel { Orientation = Orientation.Horizontal };
+        keyRow.Children.Add(key);
+        keyRow.Children.Add(save);
+        keyRow.Children.Add(cancel);
+        var entryRow = Row("API anahtarı", keyRow);
+        var state = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = palette.Secondary, Margin = new Thickness(0, 2, 0, 0) };
         void SyncKey()
         {
             var saved = DeepLKey.Value is not null;
-            state.Text = saved ? "Anahtar kayıtlı (Windows Kimlik Bilgileri Yöneticisi'nde, şifreli)." : "Anahtar kayıtlı değil.";
-            remove.IsEnabled = saved;
+            savedRow.Visibility = saved && !changing ? Visibility.Visible : Visibility.Collapsed;
+            entryRow.Visibility = saved && !changing ? Visibility.Collapsed : Visibility.Visible;
+            cancel.Visibility = changing ? Visibility.Visible : Visibility.Collapsed;
+            savedText.Text = prefs.TranslateEngine == TranslateEngine.DeepL
+                ? "API anahtarı girildi, DeepL kullanabilirsiniz."
+                : "API anahtarı girildi. DeepL'i kullanmak için yukarıda motoru \"DeepL\" yapın.";
         }
+        change.Click += (_, _) =>
+        {
+            changing = true;
+            state.Text = "";
+            SyncKey();
+            key.Focus();
+        };
+        cancel.Click += (_, _) =>
+        {
+            changing = false;
+            key.Clear();
+            state.Text = "";
+            SyncKey();
+        };
         save.Click += async (_, _) =>
         {
             if (string.IsNullOrWhiteSpace(key.Password)) return;
             save.IsEnabled = false;
-            state.Text = "Deneniyor…";
+            state.Text = "Anahtar deneniyor…";
             try
             {
                 await FastShot.Core.Translate.DeepL.Translate("Merhaba", "tr", "en", key.Password);
                 DeepLKey.Value = key.Password;
                 key.Clear();
+                changing = false;
+                state.Text = "";
                 prefs.TranslateEngine = TranslateEngine.DeepL;
                 Refresh();
             }
@@ -414,15 +450,13 @@ public sealed class SettingsWindow : Window
         {
             DeepLKey.Value = null;
             if (prefs.TranslateEngine == TranslateEngine.DeepL) prefs.TranslateEngine = TranslateEngine.Offline;
+            state.Text = "Anahtar silindi; çeviriler bu bilgisayardaki modellerle yapılır.";
             Refresh();
         };
         SyncKey();
         refreshers.Add(SyncKey);
-        var keyRow = new StackPanel { Orientation = Orientation.Horizontal };
-        keyRow.Children.Add(key);
-        keyRow.Children.Add(save);
-        keyRow.Children.Add(remove);
-        page.Children.Add(Row("API anahtarı", keyRow));
+        page.Children.Add(savedRow);
+        page.Children.Add(entryRow);
         page.Children.Add(state);
         var get = new Button { Content = "Ücretsiz DeepL anahtarı al", Padding = new Thickness(12, 4, 12, 5), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
         get.Click += (_, _) => Output.OpenUrl("https://www.deepl.com/pro-api");

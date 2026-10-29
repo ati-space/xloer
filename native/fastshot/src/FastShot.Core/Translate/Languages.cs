@@ -32,12 +32,12 @@ public static class Languages
         ["pl"] = ["i", "w", "nie", "się", "na", "jest", "to", "że", "z", "do", "jak", "ale", "co", "po", "tak"],
     };
 
-    /// <summary>The likely language of <paramref name="text"/>, or null when unsure. Letters only Turkish uses decide at once;
-    /// otherwise the script, then the most frequent common words.</summary>
+    /// <summary>The likely language of <paramref name="text"/>, or null when unsure: the script, then the most frequent common
+    /// words. Words with letters only Turkish uses count double for Turkish, but one stray "ı" (text recognition with a
+    /// Turkish engine reads English "side" as "sideı") does not outweigh a sentence of English.</summary>
     public static string? Guess(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
-        if (text.Any(c => "ğĞşŞıİ".Contains(c))) return "tr";
         var letters = text.Where(char.IsLetter).ToList();
         if (letters.Count == 0) return null;
         static double Share(List<char> chars, int from, int to) => chars.Count(c => c >= from && c <= to) / (double)chars.Count;
@@ -49,6 +49,8 @@ public static class Languages
         if (Share(letters, 0x0400, 0x04FF) > 0.3) return "bg";
         var words = text.ToLowerInvariant().Split([' ', '\n', '\r', '\t', '.', ',', ';', ':', '!', '?', '(', ')', '"', '\''], StringSplitOptions.RemoveEmptyEntries);
         var scores = commonWords.ToDictionary(p => p.Key, p => words.Count(w => p.Value.Contains(w)));
+        // ToLowerInvariant turns İ into i plus a combining dot (U+0307).
+        scores["tr"] += 2 * words.Count(w => w.Any(c => c is 'ğ' or 'ş' or 'ı' or '\u0307'));
         var best = scores.MaxBy(p => p.Value);
         return best.Value > 0 ? best.Key : null;
     }

@@ -284,7 +284,7 @@ public sealed class AppController
             case "history": ShowLibrary(); break;
             case "open": OpenFile(); break;
             case "wheel": ConversionCenter.Shared.ChooseFiles(); break;
-            case "translate": TranslateWindow.Show(""); break;
+            case "translate": TranslateCard.Show(""); break;
             case "settings": OpenSettings(); break;
             case "quit": Quit(); break;
         }
@@ -453,7 +453,7 @@ public sealed class AppController
         Item("Görüntü veya video aç…", OpenFile);
         Item("FastShot projesi aç…", OpenProjectFolder);
         Item("Dosya çarkı…", ConversionCenter.Shared.ChooseFiles);
-        Item("Çeviri…", () => TranslateWindow.Show(""));
+        Item("Çeviri…", () => TranslateCard.Show(""));
         menu.Items.Add(new Forms.ToolStripSeparator());
         Item("Ayarlar…", () => OpenSettings());
         menu.Items.Add(new Forms.ToolStripSeparator());

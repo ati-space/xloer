@@ -191,7 +191,7 @@ public sealed class CaptureSession
         {
             var text = await Ocr.Paragraphs(image);
             if (string.IsNullOrWhiteSpace(text)) Toast.Show("Metin bulunamadı", Icons.Scan);
-            else TranslateWindow.Show(text);
+            else TranslateCard.Show(text);
         }
         catch (Exception error)
         {
