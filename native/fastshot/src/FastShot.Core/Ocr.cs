@@ -19,7 +19,20 @@ public static class Ocr
     }
 
     /// <summary>The recognised lines, top to bottom. Call from an STA thread (it may enlarge the image with WPF).</summary>
-    public static async Task<List<string>> Lines(BitmapSource image)
+    public static async Task<List<string>> Lines(BitmapSource image) => (await Read(image)).Lines.Select(line => line.Text).ToList();
+
+    /// <summary>The text as paragraphs, for translation: wrapped lines joined back, split words put together (see TextReflow).</summary>
+    public static async Task<string> Paragraphs(BitmapSource image)
+    {
+        var result = await Read(image);
+        return Translate.TextReflow.Join(result.Lines.Where(line => line.Words.Count > 0).Select(line =>
+        {
+            var box = line.Words.Select(w => new Rect(w.BoundingRect.X, w.BoundingRect.Y, w.BoundingRect.Width, w.BoundingRect.Height)).Aggregate(Rect.Union);
+            return new Translate.TextReflow.Line(line.Text, box);
+        }).ToList());
+    }
+
+    static async Task<OcrResult> Read(BitmapSource image)
     {
         var engine = Engine();
         var source = image;
@@ -34,8 +47,7 @@ public static class Ocr
         var pixels = new byte[stride * bgra.PixelHeight];
         bgra.CopyPixels(pixels, stride, 0);
         using var bitmap = SoftwareBitmap.CreateCopyFromBuffer(pixels.AsBuffer(), BitmapPixelFormat.Bgra8, bgra.PixelWidth, bgra.PixelHeight, BitmapAlphaMode.Premultiplied);
-        var result = await engine.RecognizeAsync(bitmap);
-        return result.Lines.Select(line => line.Text).ToList();
+        return await engine.RecognizeAsync(bitmap);
     }
 
     public static async Task<string> Recognize(BitmapSource image) => string.Join("\n", await Lines(image)).Trim();

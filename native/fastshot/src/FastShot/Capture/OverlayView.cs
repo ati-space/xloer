@@ -507,6 +507,11 @@ public sealed class OverlayView : Canvas
                 return true;
         }
         if (IsChoosing) return false;
+        if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.T)
+        {
+            if (!IsVideo) session.TranslateText();
+            return true;
+        }
         if (modifiers == ModifierKeys.Control)
         {
             switch (key)

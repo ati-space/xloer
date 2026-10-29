@@ -521,6 +521,7 @@ function fastshotMenu() {
         { label: 'Geçmiş…', click: run('history') },
         { label: 'Görüntü veya video aç…', click: run('open') },
         { label: 'Dosya çarkı…', click: run('wheel') },
+        { label: 'Çeviri…', click: run('translate') },
         { type: 'separator' },
         { label: 'FastShot ayarları…', click: run('settings') },
       ],

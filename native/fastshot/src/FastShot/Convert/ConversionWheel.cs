@@ -523,16 +523,17 @@ public sealed class WheelView : FrameworkElement
             return;
         }
         if (e.IsRepeat) return;
-        ConvertModifier? modifier = key switch
+        var wheelKey = Preferences.Shared.WheelKey switch
         {
-            Key.LeftShift or Key.RightShift => ConvertModifier.Shift,
-            Key.LeftCtrl or Key.RightCtrl => ConvertModifier.Control,
-            Key.LeftAlt or Key.RightAlt => ConvertModifier.Alt,
-            _ => null,
+            // AltGr arrives as the right Alt key (after a left Ctrl Windows adds for it).
+            ConvertModifier.AltGr => key == Key.RightAlt,
+            ConvertModifier.Shift => key is Key.LeftShift or Key.RightShift,
+            ConvertModifier.Control => key is Key.LeftCtrl or Key.RightCtrl,
+            _ => key is Key.LeftAlt or Key.RightAlt,
         };
-        if (modifier is null) return;
+        if (!wheelKey) return;
         e.Handled = true;
-        if (modifier == Preferences.Shared.ConvertModifier) SelectNext();
+        SelectNext();
     }
 
     protected override void OnDragEnter(DragEventArgs e) => DragOverWheel(e);

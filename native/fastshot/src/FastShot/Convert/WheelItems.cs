@@ -74,6 +74,7 @@ public static class WheelTexts
         FileTool.Compress => "Sıkıştır",
         FileTool.Metadata => "Meta veri",
         FileTool.RecognizeText => "Metin",
+        FileTool.Translate => "Çevir",
         FileTool.RemoveAudio => "Sesi kaldır",
         _ => "Birleştir",
     };
@@ -85,6 +86,7 @@ public static class WheelTexts
         FileTool.Compress => "Küçült",
         FileTool.Metadata => "Konumu sil",
         FileTool.RecognizeText => "OCR · kopyala",
+        FileTool.Translate => "Metni çevir",
         FileTool.MergePdf => "Tek PDF",
         _ => null,
     };
@@ -97,6 +99,7 @@ public static class WheelTexts
         FileTool.Compress => "",
         FileTool.Metadata => "\uED1A",
         FileTool.RecognizeText => "",
+        FileTool.Translate => Icons.Translate,
         FileTool.RemoveAudio => "",
         _ => "\uE7C4",
     };
@@ -109,6 +112,7 @@ public static class WheelTexts
         FileTool.Compress => Tints.Green,
         FileTool.Metadata => Tints.Red,
         FileTool.RecognizeText => Tints.Teal,
+        FileTool.Translate => Tints.Blue,
         FileTool.RemoveAudio => Tints.Pink,
         _ => Tints.Indigo,
     };

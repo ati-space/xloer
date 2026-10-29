@@ -3,7 +3,7 @@ using Microsoft.Win32;
 
 namespace FastShot;
 
-public enum SettingsTab { General, Shortcuts, Saving, Video, Convert }
+public enum SettingsTab { General, Shortcuts, Saving, Video, Convert, Translate }
 
 public sealed class SettingsWindow : Window
 {
@@ -25,6 +25,7 @@ public sealed class SettingsWindow : Window
         tabs.Items.Add(Tab("Kaydetme", Saving()));
         tabs.Items.Add(Tab("Video", Video()));
         tabs.Items.Add(Tab("Dosya çarkı", Convert()));
+        tabs.Items.Add(Tab("Çeviri", Translation()));
         Content = tabs;
         Activated += (_, _) => Refresh();
         HotKeyCenter.Shared.FailedChanged += Refresh;
@@ -294,12 +295,12 @@ public sealed class SettingsWindow : Window
         var page = Page();
         page.Children.Add(Section("Dosya çarkını açmak"));
         page.Children.Add(Toggle("Dosya sürüklerken çarkı aç", () => prefs.ConvertEnabled, on => prefs.ConvertEnabled = on));
-        page.Children.Add(Row("Çarkı açan tuş", Picker(Enum.GetValues<ConvertModifier>().Select(m => (m.Title(), m)), () => prefs.ConvertModifier, v => prefs.ConvertModifier = v)));
+        page.Children.Add(Row("Çarkı açan tuş", Picker(Enum.GetValues<ConvertModifier>().Select(m => (m.Title(), m)), () => prefs.WheelKey, v => prefs.WheelKey = v)));
         page.Children.Add(Toggle("Sağ tık menüsüne \"FastShot çarkı\" ekle", () => prefs.ConvertContextMenu, on => prefs.ConvertContextMenu = on));
         var keyNote = Note("");
         void SyncKeyNote()
         {
-            var key = prefs.ConvertModifier.Title();
+            var key = prefs.WheelKey.Title();
             keyNote.Text = $"Dosyaları sürüklerken {key} tuşuna bir kez basın; imlecin etrafında Dönüştür çarkı açılır. {key}'e tekrar bastıkça Araçlar ve İşlemler çarklarına geçersiniz; üstteki çubuğun üzerinde bir an beklemek de o çarkı açar. Seçeneğin üzerine bırakın. Sürüklemeden kullanmak için dosyalara sağ tıklayıp \"FastShot çarkı\"nı seçin (Windows 11'de önce \"Daha fazla seçenek göster\") ya da bildirim alanındaki menüden \"Dosya çarkı…\".";
         }
         SyncKeyNote();
@@ -347,6 +348,86 @@ public sealed class SettingsWindow : Window
         page.Children.Add(Section("İşlemler"));
 
         page.Children.Add(Row("Her dosya ve klasör", List("ZIP'le / ZIP'i aç · Paylaş (Yakındaki paylaşım) · Panoya kopyala · Yolu kopyala · Ekrana sabitle (görüntü) · Terminal'de aç")));
+        return page;
+    }
+
+    UIElement Translation()
+    {
+        var page = Page();
+        page.Children.Add(Section("Çeviri"));
+        page.Children.Add(Row("Motor", Picker([("Çevrimdışı (bu bilgisayarda, ücretsiz)", TranslateEngine.Offline), ("DeepL (kendi anahtarınızla)", TranslateEngine.DeepL)],
+                                               () => prefs.TranslateEngine, v => prefs.TranslateEngine = v)));
+        page.Children.Add(Row("Hedef dil", Picker(FastShot.Core.Translate.Languages.All.Select(l => (l.Name, l.Code)), () => prefs.TranslateTarget, v => prefs.TranslateTarget = v)));
+        page.Children.Add(Note("Seçim ekranında \"Metni tanı ve çevir\" (Ctrl+Shift+T), dosya çarkında Araçlar › Çevir ya da bildirim alanı menüsünde \"Çeviri…\". Ekrandan tanınan satırlar çeviriden önce paragraf olarak birleştirilir."));
+
+        page.Children.Add(Section("Çevrimdışı çeviri"));
+        var usage = new TextBlock { Foreground = palette.Secondary, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
+        var delete = new Button { Content = "Modelleri sil", Padding = new Thickness(12, 4, 12, 5) };
+        void SyncUsage()
+        {
+            var (pairs, bytes) = FastShot.Core.Translate.TranslationModels.Usage();
+            usage.Text = pairs == 0 ? "Henüz model indirilmedi." : $"{pairs} dil yönü indirildi ({bytes / 1048576.0:0} MB).";
+            delete.IsEnabled = pairs > 0;
+        }
+        delete.Click += (_, _) =>
+        {
+            try { FastShot.Core.Translate.TranslationModels.DeleteAll(); }
+            catch (Exception error) { Output.ShowError(error, "Modeller silinemedi"); }
+            SyncUsage();
+        };
+        SyncUsage();
+        refreshers.Add(SyncUsage);
+        var usageRow = new StackPanel { Orientation = Orientation.Horizontal };
+        usageRow.Children.Add(usage);
+        usageRow.Children.Add(delete);
+        page.Children.Add(usageRow);
+        page.Children.Add(Note("Firefox'un çeviri motoru ve modelleri (Mozilla, MPL-2.0) bu bilgisayarda çalışır: anahtar ve hesap gerekmez, metin bilgisayardan çıkmaz. Bir dil yönünün modeli (yaklaşık 20 MB) ilk çeviride bir kez indirilir. Türkçe, İngilizce, Almanca, Fransızca, İspanyolca ve 25 dil daha; İngilizce dışındaki çiftler İngilizce üzerinden çevrilir. Microsoft Edge WebView2 gerekir (Windows 11'de ve güncel Windows 10'da yüklüdür)."));
+
+        page.Children.Add(Section("DeepL"));
+        var key = new PasswordBox { MinWidth = 280, VerticalAlignment = VerticalAlignment.Center };
+        var save = new Button { Content = "Kaydet ve dene", Padding = new Thickness(12, 4, 12, 5), Margin = new Thickness(8, 0, 0, 0) };
+        var remove = new Button { Content = "Sil", Padding = new Thickness(12, 4, 12, 5), Margin = new Thickness(8, 0, 0, 0) };
+        var state = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
+        void SyncKey()
+        {
+            var saved = DeepLKey.Value is not null;
+            state.Text = saved ? "Anahtar kayıtlı (Windows Kimlik Bilgileri Yöneticisi'nde, şifreli)." : "Anahtar kayıtlı değil.";
+            remove.IsEnabled = saved;
+        }
+        save.Click += async (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(key.Password)) return;
+            save.IsEnabled = false;
+            state.Text = "Deneniyor…";
+            try
+            {
+                await FastShot.Core.Translate.DeepL.Translate("Merhaba", "tr", "en", key.Password);
+                DeepLKey.Value = key.Password;
+                key.Clear();
+                prefs.TranslateEngine = TranslateEngine.DeepL;
+                Refresh();
+            }
+            catch (Exception error) { state.Text = error.Message; }
+            finally { save.IsEnabled = true; }
+        };
+        remove.Click += (_, _) =>
+        {
+            DeepLKey.Value = null;
+            if (prefs.TranslateEngine == TranslateEngine.DeepL) prefs.TranslateEngine = TranslateEngine.Offline;
+            Refresh();
+        };
+        SyncKey();
+        refreshers.Add(SyncKey);
+        var keyRow = new StackPanel { Orientation = Orientation.Horizontal };
+        keyRow.Children.Add(key);
+        keyRow.Children.Add(save);
+        keyRow.Children.Add(remove);
+        page.Children.Add(Row("API anahtarı", keyRow));
+        page.Children.Add(state);
+        var get = new Button { Content = "Ücretsiz DeepL anahtarı al", Padding = new Thickness(12, 4, 12, 5), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 8, 0, 0) };
+        get.Click += (_, _) => Output.OpenUrl("https://www.deepl.com/pro-api");
+        page.Children.Add(get);
+        page.Children.Add(Note("Daha yüksek kalite için: DeepL'in ücretsiz planı (ayda 500.000 karakter) için deepl.com'dan bir anahtar alıp buraya yapıştırın. Anahtar yalnızca bu bilgisayarda saklanır; çeviriler sizin hesabınızdan gider. Anahtar yokken ya da motor \"Çevrimdışı\"yken bilgisayardaki modeller kullanılır."));
         return page;
     }
 

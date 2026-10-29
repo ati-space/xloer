@@ -1,6 +1,6 @@
 // FastShot inside Xloer: screenshots (Print Screen), screen recording
-// (Shift+Print Screen), the editor, history and the file wheel (drag files in
-// Explorer and tap Shift), for as long as Xloer runs.
+// (Shift+Print Screen), the editor, history, translating recognised text and
+// the file wheel (drag files in Explorer and tap AltGr), for as long as Xloer runs.
 //
 // It is FastShot.exe started with --embedded <Xloer's pid> (built from
 // native/fastshot by scripts/build-fastshot.js, shipped in resources/fastshot).
@@ -100,7 +100,7 @@ export function createFastShot({ onState } = {}) {
         setState({ screenshot: null, record: null, recording: false });
       }
     },
-    // screenshot, record, edit-last, history, open, wheel or settings.
+    // screenshot, record, edit-last, history, open, wheel, translate or settings.
     command(name) {
       if (child?.stdin.writable) child.stdin.write(`${name}\n`);
     },

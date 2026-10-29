@@ -1,0 +1,42 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>FastShot translator</title>
+<script type="module">
+// Runs Firefox's translation engine (bergamot-translator, in WebAssembly) for FastShot's OfflineTranslator, inside a
+// hidden WebView2. FastShot posts {type, id, from, to, text}; the answer is {id, text} or {id, error}.
+// registry.json lists the models FastShot has downloaded; "reload" re-reads it after a download.
+import { LatencyOptimisedTranslator } from './engine/translator.js';
+
+let translator = null;
+const create = () => {
+  translator?.delete();
+  translator = new LatencyOptimisedTranslator({
+    registryUrl: new URL(`registry.json?${Date.now()}`, location.href).href,
+    pivotLanguage: 'en',
+    downloadTimeout: 0,
+  });
+};
+create();
+
+const reply = (message) => window.chrome.webview.postMessage(message);
+
+window.chrome.webview.addEventListener('message', async ({ data }) => {
+  if (data.type === 'reload') return create();
+  if (data.type !== 'translate') return;
+  try {
+    // Paragraphs one by one: the engine keeps sentence order, and the blank lines between them stay as they were.
+    const parts = data.text.split(/\n{2,}/);
+    const out = [];
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      const response = await translator.translate({ from: data.from, to: data.to, text: part, html: false });
+      out.push(response.target.text);
+    }
+    reply({ id: data.id, text: out.join('\n\n') });
+  } catch (error) {
+    reply({ id: data.id, error: String(error?.message ?? error) });
+  }
+});
+
+reply({ type: 'ready' });
+</script>

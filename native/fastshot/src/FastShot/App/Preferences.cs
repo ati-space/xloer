@@ -6,13 +6,13 @@ namespace FastShot;
 public enum VideoCodec { h264, hevc }
 
 /// <summary>Key that opens a wheel while files are being dragged.</summary>
-public enum ConvertModifier { Shift, Control, Alt }
+public enum ConvertModifier { AltGr, Shift, Control, Alt }
 
 public enum ConvertDestination { Beside, Downloads, Custom }
 
 public static class ConvertOptionTitles
 {
-    public static string Title(this ConvertModifier modifier) => modifier switch { ConvertModifier.Control => "Ctrl", ConvertModifier.Alt => "Alt", _ => "Shift" };
+    public static string Title(this ConvertModifier modifier) => modifier switch { ConvertModifier.AltGr => "AltGr", ConvertModifier.Control => "Ctrl", ConvertModifier.Alt => "Alt", _ => "Shift" };
 
     public static string Title(this ConvertDestination destination) => destination switch
     {
@@ -52,7 +52,8 @@ public sealed class Preferences
         public KeyCombo? RecordHotkey = KeyCombo.ControlShift7;
         public KeyCombo? RecordHotkeyAlt = KeyCombo.ShiftPrintScreen;
         public bool ConvertEnabled = true;
-        public ConvertModifier ConvertModifier = ConvertModifier.Shift;
+        // Was "ConvertModifier" (Shift) until 1.2.0; the new name starts everyone on AltGr.
+        public ConvertModifier WheelKey = ConvertModifier.AltGr;
         public ConvertDestination ConvertDestination = ConvertDestination.Beside;
         public string ConvertFolder = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
         public bool RevealAfterConvert;
@@ -75,6 +76,8 @@ public sealed class Preferences
         public bool PrintScreenTakenOver;
         public bool ShowTrayIcon = true;
         public bool CheckForUpdates = true;
+        public TranslateEngine TranslateEngine = TranslateEngine.Offline;
+        public string TranslateTarget = "tr";
         public double AnnotationLength = 3;
         public string LastColor = RGBAColor.Red.Hex;
         public int LastSize = 1;
@@ -145,9 +148,13 @@ public sealed class Preferences
     public bool ShowTrayIcon { get => data.ShowTrayIcon; set => Set(ref data.ShowTrayIcon, value); }
     /// <summary>The installed copy looks for new releases on GitHub (see Updater).</summary>
     public bool CheckForUpdates { get => data.CheckForUpdates; set => Set(ref data.CheckForUpdates, value); }
+    /// <summary>DeepL needs the user's own key (see DeepLKey); without one the offline engine is used.</summary>
+    public TranslateEngine TranslateEngine { get => data.TranslateEngine; set => Set(ref data.TranslateEngine, value); }
+    /// <summary>The language the translation window translates to; it remembers the last choice.</summary>
+    public string TranslateTarget { get => data.TranslateTarget; set => Set(ref data.TranslateTarget, value); }
     public bool ConvertEnabled { get => data.ConvertEnabled; set => Set(ref data.ConvertEnabled, value); }
     /// <summary>Opens the file wheel while files are dragged; tapping it again goes to the next wheel.</summary>
-    public ConvertModifier ConvertModifier { get => data.ConvertModifier; set => Set(ref data.ConvertModifier, value); }
+    public ConvertModifier WheelKey { get => data.WheelKey; set => Set(ref data.WheelKey, value); }
     public ConvertDestination ConvertDestination { get => data.ConvertDestination; set => Set(ref data.ConvertDestination, value); }
     public string ConvertFolder { get => data.ConvertFolder; set => Set(ref data.ConvertFolder, value); }
     public bool RevealAfterConvert { get => data.RevealAfterConvert; set => Set(ref data.RevealAfterConvert, value); }

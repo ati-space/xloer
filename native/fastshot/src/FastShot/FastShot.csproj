@@ -34,6 +34,16 @@
   <ItemGroup>
     <!-- The logo; AppIcon.cs draws every icon size from it, and scripts\make-icon.ps1 writes Assets\AppIcon.ico from it. -->
     <EmbeddedResource Include="Assets\AppIcon.png" LogicalName="FastShot.AppIcon.png" />
+    <!-- Firefox's translation engine for OfflineTranslator (bergamot-translator 0.4.9, MPL-2.0; see THIRD-PARTY-NOTICES.md). -->
+    <EmbeddedResource Include="Translate\Engine\translate.html" LogicalName="FastShot.Translate.translate.html" />
+    <EmbeddedResource Include="Translate\Engine\translator.js" LogicalName="FastShot.Translate.translator.js" />
+    <EmbeddedResource Include="Translate\Engine\worker\translator-worker.js" LogicalName="FastShot.Translate.worker.translator-worker.js" />
+    <EmbeddedResource Include="Translate\Engine\worker\bergamot-translator-worker.js" LogicalName="FastShot.Translate.worker.bergamot-translator-worker.js" />
+    <EmbeddedResource Include="Translate\Engine\worker\bergamot-translator-worker.wasm" LogicalName="FastShot.Translate.worker.bergamot-translator-worker.wasm" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
   </ItemGroup>
 
 </Project>

@@ -58,6 +58,7 @@ public static class OverlayToolbars
             Add(Ui.VSeparator(p));
             Add(new IconButton(new IconView(Icons.Pin), "Ekrana sabitle (Ctrl+P)", session.Pin, p));
             Add(new IconButton(new IconView(Icons.Scan), "Metni tanı ve kopyala (Ctrl+T)", session.RecognizeText, p));
+            Add(new IconButton(new IconView(Icons.Translate), "Metni tanı ve çevir (Ctrl+Shift+T)", session.TranslateText, p));
             Add(new IconButton(new IconView(Icons.Edit), "Düzenleyicide aç (Ctrl+E)", session.OpenEditor, p));
             Add(new IconButton(new IconView(Icons.Record), "Bu alanı videoya kaydet (Ctrl+R)", session.Record, p, tint: Theme.Red));
             Add(Ui.VSeparator(p));

@@ -1073,7 +1073,7 @@ async function openSettings() {
       <h3>FastShot</h3>
       <label class="check-row"><input type="checkbox" data-set="fastshot" ${checked(s.fastshot)}><span>Ekran görüntüsü, ekran kaydı ve dosya çarkı (FastShot)</span></label>
       <p class="hint"><b>Print Screen</b> (ya da Ctrl+Shift+2): alan seç, üzerine çiz, kopyala veya kaydet. <b>Shift+Print Screen</b> (ya da Ctrl+Shift+7): seçtiğin alanı videoya kaydet, bitirmek için tekrar bas. Yakalamalar çizimleriyle Geçmiş’te saklanır, sonra yeniden düzenlenebilir.</p>
-      <p class="hint"><b>Dosya çarkı:</b> Gezgin’de veya masaüstünde dosyaları sürüklerken Shift’e bir kez bas; imlecin etrafında Dönüştür çarkı açılır. Shift’e tekrar bastıkça Araçlar (kırp, sıkıştır, meta veri sil, PDF birleştir…) ve İşlemler (ZIP, paylaş, panoya kopyala, terminal) çarklarına geçilir. Sonuç yeni bir dosya olarak kaydedilir, orijinaller değişmez.</p>
+      <p class="hint"><b>Dosya çarkı:</b> Gezgin’de veya masaüstünde dosyaları sürüklerken AltGr’ye bir kez bas; imlecin etrafında Dönüştür çarkı açılır. AltGr’ye tekrar bastıkça Araçlar (kırp, sıkıştır, meta veri sil, PDF birleştir…) ve İşlemler (ZIP, paylaş, panoya kopyala, terminal) çarklarına geçilir. Sonuç yeni bir dosya olarak kaydedilir, orijinaller değişmez.</p>
       <p class="hint">Xloer açık olduğu sürece çalışır. Kısayollar, klasörler ve diğer ayarlar: sistem tepsisindeki Xloer menüsü › FastShot › FastShot ayarları.</p>
     </section>
     <section>

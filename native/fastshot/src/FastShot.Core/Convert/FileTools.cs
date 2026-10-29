@@ -10,7 +10,7 @@ using FastShot.Core.Media;
 namespace FastShot.Core.Convert;
 
 /// <summary>Changes a file's content without changing its kind.</summary>
-public enum FileTool { Edit, Crop, Background, Compress, Metadata, RecognizeText, RemoveAudio, MergePdf }
+public enum FileTool { Edit, Crop, Background, Compress, Metadata, RecognizeText, Translate, RemoveAudio, MergePdf }
 
 /// <summary>Does something with files and folders as they are.</summary>
 public enum FileAction { Zip, Unzip, Share, CopyToClipboard, CopyPath, Pin, Terminal }
@@ -31,7 +31,7 @@ public static class FileTools
         {
             case FileFamily.Image:
                 return single
-                    ? [FileTool.Edit, FileTool.Crop, FileTool.Background, FileTool.Compress, FileTool.Metadata, FileTool.RecognizeText]
+                    ? [FileTool.Edit, FileTool.Crop, FileTool.Background, FileTool.Compress, FileTool.Metadata, FileTool.RecognizeText, FileTool.Translate]
                     : [FileTool.Edit, FileTool.Background, FileTool.Compress, FileTool.Metadata];
             case FileFamily.Video:
                 return [.. single ? [FileTool.Edit] : Array.Empty<FileTool>(), FileTool.Compress, FileTool.RemoveAudio, FileTool.Metadata];

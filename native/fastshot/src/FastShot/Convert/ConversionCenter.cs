@@ -56,6 +56,9 @@ public sealed class ConversionCenter
             case FileTool.RecognizeText:
                 _ = RecognizeText(files[0]);
                 break;
+            case FileTool.Translate:
+                if (ImageExporter.Load(files[0]) is { } picture) _ = CaptureSession.TranslateAsync(picture);
+                break;
             case FileTool.Compress:
                 Enqueue(new Job("Sıkıştırılıyor", tool.DoneText(), files, false, (batch, folder, progress, cancellation) => [FileTools.Compress(batch[0], folder, progress, cancellation)]));
                 break;

@@ -142,9 +142,9 @@ uyarısı gösterebilir: **Ek bilgi → Yine de çalıştır**.
   FastShot’a verilir. Geri vermek için: FastShot ayarları › Kısayollar › “Windows’a geri ver”.
 
 **Dosya çarkı**
-- Gezgin’de veya masaüstünde dosyaları (ya da klasörleri) sürüklerken **Shift**’e bir
+- Gezgin’de veya masaüstünde dosyaları (ya da klasörleri) sürüklerken **AltGr**’ye bir
   kez basın: imlecin etrafında **Dönüştür** çarkı açılır. Seçeneğin üzerine bırakın.
-- Shift’e tekrar bastıkça **Araçlar** ve **İşlemler** çarklarına geçilir; halkanın
+- AltGr’ye tekrar bastıkça **Araçlar** ve **İşlemler** çarklarına geçilir; halkanın
   üstündeki çubukta bir an beklemek de o çarkı açar.
   - Dönüştür: görüntü (PNG, JPEG, HEIC, PDF, TIFF, GIF, BMP), video (MP4, HEVC, GIF,
     ses çıkarma), ses (M4A, MP3, WAV, AIFF, FLAC), PDF (sayfa görüntüleri, TXT, RTF,

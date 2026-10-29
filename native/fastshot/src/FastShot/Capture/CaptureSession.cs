@@ -177,6 +177,28 @@ public sealed class CaptureSession
         _ = RecognizeAsync(crop);
     }
 
+    /// <summary>Recognises the selection's text as paragraphs and opens it in the translation window.</summary>
+    public void TranslateText()
+    {
+        if (ActiveView?.CroppedImage() is not { } crop) return;
+        Finish();
+        _ = TranslateAsync(crop);
+    }
+
+    public static async Task TranslateAsync(BitmapSource image)
+    {
+        try
+        {
+            var text = await Ocr.Paragraphs(image);
+            if (string.IsNullOrWhiteSpace(text)) Toast.Show("Metin bulunamadı", Icons.Scan);
+            else TranslateWindow.Show(text);
+        }
+        catch (Exception error)
+        {
+            Output.ShowError(error, "Metin tanınamadı");
+        }
+    }
+
     static async Task RecognizeAsync(BitmapSource crop)
     {
         try

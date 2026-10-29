@@ -28,6 +28,7 @@ public sealed class DragMonitor
 
     static int VirtualKey(ConvertModifier modifier) => modifier switch
     {
+        ConvertModifier.AltGr => 0xA5, // VK_RMENU: AltGr is the right Alt key
         ConvertModifier.Control => 0x11,
         ConvertModifier.Alt => 0x12,
         _ => 0x10,
@@ -48,7 +49,7 @@ public sealed class DragMonitor
             return;
         }
         // Fire on the key going down during a file drag, not on a key held before the drag.
-        var key = Down(VirtualKey(Preferences.Shared.ConvertModifier));
+        var key = Down(VirtualKey(Preferences.Shared.WheelKey));
         var tapped = key && !keyWasDown;
         keyWasDown = key;
         if (!mouseDown)
