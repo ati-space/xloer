@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Product>FastShot</Product>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>

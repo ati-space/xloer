@@ -74,7 +74,7 @@ public sealed class RecordingSession
         catch (Exception error)
         {
             StopAudio();
-            writer?.Dispose();
+            if (writer is { } failed) OnMta(() => failed.Dispose());
             writer = null;
             if (project is not null) try { library.Delete(project); } catch { /* ignore */ }
             Teardown();
@@ -84,6 +84,11 @@ public sealed class RecordingSession
     }
 
     static int Even(double value) => Math.Max(2, (int)value & ~1);
+
+    /// <summary>Media Foundation's sink writer cannot be called from another COM apartment ("Specified cast is not valid").
+    /// The capture, audio and finishing threads are MTA, so the writer is made (and disposed) in the MTA too, not on the UI thread.</summary>
+    static T OnMta<T>(Func<T> work) => Task.Run(work).GetAwaiter().GetResult();
+    static void OnMta(Action work) => Task.Run(work).GetAwaiter().GetResult();
 
     void BeginCapture()
     {
@@ -103,8 +108,9 @@ public sealed class RecordingSession
         project.Duration = 0;
 
         var wantsAudio = prefs.RecordSystemAudio || prefs.RecordMicrophone;
-        writer = new VideoWriter(library.MediaPath(project), outWidth, outHeight, fps, prefs.VideoCodec == VideoCodec.hevc,
-                                 audio: wantsAudio ? AudioFormat.Standard : null);
+        var media = library.MediaPath(project);
+        var hevc = prefs.VideoCodec == VideoCodec.hevc;
+        writer = OnMta(() => new VideoWriter(media, outWidth, outHeight, fps, hevc, audio: wantsAudio ? AudioFormat.Standard : null));
 
         var start100ns = AudioSource.Now100ns();
         clock.Restart();

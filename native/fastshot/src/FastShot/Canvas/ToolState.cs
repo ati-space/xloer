@@ -74,9 +74,10 @@ public enum StyleChange { Color, Size, Filled }
 /// a mark is selected restyles that mark.</summary>
 public sealed class ToolState
 {
-    public static readonly double[] LineWidths = [2, 4, 7, 12];
-    public static readonly double[] FontSizes = [14, 20, 28, 40];
-    public static readonly string[] SizeNames = ["İnce", "Orta", "Kalın", "Çok kalın"];
+    // Finer than the Mac app's four steps: on a 150 % screen its thinnest line was already 3 px.
+    public static readonly double[] LineWidths = [1, 2, 3, 5, 8];
+    public static readonly double[] FontSizes = [12, 14, 20, 28, 40];
+    public static readonly string[] SizeNames = ["Çok ince", "İnce", "Orta", "Kalın", "Çok kalın"];
 
     /// <summary>Raised after any property changes, for toolbars to refresh.</summary>
     public event Action? Changed;

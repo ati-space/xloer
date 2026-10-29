@@ -30,6 +30,13 @@ public static class VideoCodecExtensions
 /// <summary>User settings, persisted as JSON under %APPDATA%\FastShot.</summary>
 public sealed class Preferences
 {
+    // Before Shared: static fields start in this order, and Load() needs the options (without them no field is read).
+    static readonly JsonSerializerOptions jsonOptions = new()
+    {
+        WriteIndented = true,
+        IncludeFields = true,
+        Converters = { new JsonStringEnumConverter() },
+    };
     public static Preferences Shared { get; } = Load();
 
     public static string Path => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "FastShot", "settings.json");
@@ -37,12 +44,6 @@ public sealed class Preferences
     /// <summary>Raised on the UI thread after any setting changes.</summary>
     public event Action? Changed;
 
-    static readonly JsonSerializerOptions jsonOptions = new()
-    {
-        WriteIndented = true,
-        IncludeFields = true,
-        Converters = { new JsonStringEnumConverter() },
-    };
 
     sealed class Data
     {

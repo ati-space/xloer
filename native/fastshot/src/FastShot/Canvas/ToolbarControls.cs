@@ -290,7 +290,7 @@ public sealed class SizePicker : StackPanel
         HorizontalAlignment = HorizontalAlignment.Center;
         for (var i = 0; i < ToolState.LineWidths.Length; i++)
         {
-            var diameter = 4 + i * 3;
+            var diameter = 3 + i * 2.5;
             var dot = new Border { Width = diameter, Height = diameter, CornerRadius = new CornerRadius(diameter / 2.0) };
             var cell = new Border { Width = dotWidth, Height = 20, Background = Brushes.Transparent, Child = dot, ToolTip = ToolState.SizeNames[i], Focusable = false };
             var index = i;
