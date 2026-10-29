@@ -22,7 +22,7 @@ function luminance(hex) {
   });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
-export function inkOn(hex) {
+function inkOn(hex) {
   const l = luminance(hex);
   const contrast = (ink) => (Math.max(l, luminance(ink)) + 0.05) / (Math.min(l, luminance(ink)) + 0.05);
   return contrast(INK[0]) >= contrast(INK[1]) ? INK[0] : INK[1];
@@ -82,7 +82,7 @@ export function formatDateTime(ms) {
 
 const openMenus = [];
 
-export function closeMenus(fromLevel = 0) {
+function closeMenus(fromLevel = 0) {
   while (openMenus.length > fromLevel) openMenus.pop().remove();
 }
 

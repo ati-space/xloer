@@ -7,7 +7,7 @@ export const TR_WEEKDAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const pad = (n) => String(n).padStart(2, '0');
 const daysIn = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 
-export const isoDate = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+const isoDate = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
 
 // "2026-09-15" → "15.09.2026".
 export function formatTrDate(iso) {

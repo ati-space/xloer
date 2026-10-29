@@ -159,14 +159,12 @@ public sealed class IconButton : Border
 {
     readonly UiPalette palette;
     IconView icon;
-    readonly Action action;
     readonly Brush? tint;
     bool selected, pressed;
 
     public IconButton(IconView icon, string help, Action action, UiPalette palette, double size = 30, Brush? tint = null)
     {
         this.icon = icon;
-        this.action = action;
         this.palette = palette;
         this.tint = tint;
         Width = size;

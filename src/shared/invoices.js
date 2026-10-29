@@ -31,7 +31,7 @@ export function shiftLabel(row) {
   return days ? `${days}/${days * SHIFTS_PER_DAY}` : '';
 }
 
-export function formatDate(iso) {
+function formatDate(iso) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-');
   return `${d}.${m}.${y}`;

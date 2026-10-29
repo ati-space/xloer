@@ -157,14 +157,6 @@ public sealed class AnnotationController
         Changed();
     }
 
-    public void ClearAll()
-    {
-        if (Annotations.Count == 0) return;
-        RegisterUndo();
-        Annotations.Clear();
-        Select(null);
-        Changed();
-    }
 
     public void NudgeSelected(double dx, double dy)
     {
@@ -253,7 +245,7 @@ public sealed class AnnotationController
 
     public enum MouseResult { Handled, Background }
 
-    public MouseResult MouseDown(Point p, int clickCount, bool shift, double tolerance)
+    public MouseResult MouseDown(Point p, int clickCount, double tolerance)
     {
         var hit = HitTest(p, tolerance);
         if (clickCount >= 2 && hit is { } doubleHit && Find(doubleHit)?.Kind == AnnotationKind.text)

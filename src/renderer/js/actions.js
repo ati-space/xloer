@@ -74,7 +74,7 @@ export async function addInSection(tree, list, sectionId) {
   if (id) tree.editWhenReady(id, { isNew: true });
 }
 
-export async function addSubtask(ctx, task) {
+async function addSubtask(ctx, task) {
   if (ctx.flat) {
     const title = await promptModal({ title: 'Alt görev ekle', label: `“${short(task.title)}” altına`, placeholder: 'Alt görev adı', okLabel: 'Ekle' });
     if (title) run({ type: 'task/create', parentId: task.id, title });
@@ -154,7 +154,7 @@ export function pickDue(task, anchor) {
 
 // The quick days set a date without a time; "Tarih ve saat…" picks both.
 // anchor: the task's row, for the picker to open under.
-export function dateItems(task, anchor) {
+function dateItems(task, anchor) {
   const today = todayStr();
   const set = (due) => () => run({ type: 'task/update', id: task.id, patch: { due, dueTime: null } });
   const current = dueLabel(task.due, false, task.dueTime);
@@ -234,7 +234,7 @@ export async function purge(task) {
 
 // Keyboard moves inside a list: Alt+↑/↓ reorder, Tab nests under the task
 // above, Shift+Tab moves out one level.
-export function keyMove(state, task, kind) {
+function keyMove(state, task, kind) {
   const index = buildIndex(state);
   const list = getList(state, task.listId);
   const visible = (x) => x === task || list?.showCompleted || !x.done;

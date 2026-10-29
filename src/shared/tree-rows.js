@@ -68,7 +68,7 @@ export function buildListRows(state, listId, opts = {}) {
   return rows;
 }
 
-export function taskPath(state, index, t) {
+function taskPath(state, index, t) {
   const list = getList(state, t.listId);
   const parts = [list ? `${list.emoji} ${list.name}` : ''];
   for (const a of ancestors(index, t)) parts.push(a.title || 'Başlıksız');
@@ -98,7 +98,7 @@ function treeOrder(state, index) {
 const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 const DAYS = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
-export function dayLabel(dateStr, today = todayStr()) {
+function dayLabel(dateStr, today = todayStr()) {
   if (dateStr === today) return 'Bugün';
   if (dateStr === addDays(today, 1)) return 'Yarın';
   if (dateStr === addDays(today, -1)) return 'Dün';

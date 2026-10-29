@@ -132,11 +132,71 @@ public sealed class SettingsWindow : Window
         }));
         page.Children.Add(Toggle("Seçim yaparken büyüteci göster", () => prefs.ShowMagnifier, on => prefs.ShowMagnifier = on));
         page.Children.Add(Toggle("Ses efektlerini çal", () => prefs.PlaySounds, on => prefs.PlaySounds = on));
+        var embedded = AppController.Shared.Embedded;
+        if (!embedded) page.Children.Add(Toggle("Simgeyi bildirim alanında göster", () => prefs.ShowTrayIcon, on => prefs.ShowTrayIcon = on));
+        if (!embedded) page.Children.Add(Note("Simge gizliyken FastShot çalışmaya devam eder: kısayollar ve dosya çarkı çalışır. Ayarlara dönmek için FastShot'ı Başlat menüsünden yeniden açın. Simge görünürken de bildirim alanındaki ^ okunun altına (gizli simgeler) taşıyabilirsiniz: Windows Ayarları › Kişiselleştirme › Görev çubuğu › Diğer sistem tepsisi simgeleri."));
         var history = new Button { Content = "Geçmiş klasörünü göster", Padding = new Thickness(12, 4, 12, 5) };
         history.Click += (_, _) => Output.OpenFolder(AppController.Shared.Library.Root);
         page.Children.Add(Row("Geçmiş", history));
         page.Children.Add(Note("Kopyaladığınız, kaydettiğiniz veya kaydını aldığınız her yakalama, orijinal medya ve çizimleriyle birlikte bu klasörde saklanır. FastShot'ı Başlat menüsünden yeniden açtığınızda bu ayarlar açılır."));
+
+        if (embedded)
+        {
+            page.Children.Add(Note($"FastShot {Installer.CurrentVersion.ToString(3)} Xloer'in içinde çalışıyor: simgesi ve kısayolları Xloer'in sistem tepsisi menüsünde. Xloer güncellenince FastShot da güncellenir."));
+            return page;
+        }
+        page.Children.Add(Section("Güncellemeler"));
+        page.Children.Add(Updates());
+        var quit = new Button { Content = "FastShot'tan çık", Padding = new Thickness(12, 4, 12, 5), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 16, 0, 0) };
+        quit.Click += (_, _) => AppController.Shared.Quit();
+        page.Children.Add(quit);
         return page;
+    }
+
+    UIElement Updates()
+    {
+        var panel = new StackPanel();
+        var updater = Updater.Shared;
+        var status = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
+        var check = new Button { Content = "Güncellemeleri denetle", Padding = new Thickness(12, 4, 12, 5), Margin = new Thickness(0, 0, 8, 0) };
+        var install = new Button { Padding = new Thickness(12, 4, 12, 5) };
+        if (TryFindResource("AccentButtonStyle") is Style accent) install.Style = accent;
+        check.Click += (_, _) => _ = updater.Check(userAsked: true);
+        install.Click += (_, _) => _ = updater.Install();
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+        buttons.Children.Add(check);
+        buttons.Children.Add(install);
+        var installed = Installer.RunningInstalled;
+        void Sync()
+        {
+            var version = Installer.CurrentVersion.ToString(3);
+            status.Text = !installed
+                ? $"Sürüm {version}. Bu kopya kurulu değil; güncellemeler yalnızca kurulu FastShot'ta denetlenir. Kurmak için Releases sayfasından {Installer.SetupName} dosyasını indirip açın."
+                : updater.State switch
+                {
+                    Updater.Status.Checking => $"Sürüm {version}. Denetleniyor…",
+                    Updater.Status.Available => $"Sürüm {version}. FastShot {updater.Available!.Version.ToString(3)} hazır.",
+                    Updater.Status.Downloading => "Güncelleme indiriliyor; FastShot birazdan yeniden açılacak.",
+                    Updater.Status.UpToDate => $"Sürüm {version}. FastShot güncel (son denetim {updater.LastChecked:HH:mm}).",
+                    Updater.Status.Failed => $"Sürüm {version}. {updater.Error}",
+                    _ => $"Sürüm {version}.",
+                };
+            check.IsEnabled = installed && updater.State is not (Updater.Status.Checking or Updater.Status.Downloading);
+            install.Visibility = updater.State == Updater.Status.Available ? Visibility.Visible : Visibility.Collapsed;
+            if (updater.Available is { } release) install.Content = $"{release.Version.ToString(3)} sürümüne güncelle";
+        }
+        void Changed() => Dispatcher.BeginInvoke(Sync);
+        updater.Changed += Changed;
+        Closed += (_, _) => updater.Changed -= Changed;
+        refreshers.Add(Sync);
+        Sync();
+        panel.Children.Add(status);
+        panel.Children.Add(buttons);
+        panel.Children.Add(Toggle("Güncellemeleri otomatik denetle", () => prefs.CheckForUpdates, on => prefs.CheckForUpdates = on));
+        var releases = new Button { Content = "Sürüm notları", Padding = new Thickness(12, 4, 12, 5), HorizontalAlignment = HorizontalAlignment.Left };
+        releases.Click += (_, _) => Output.OpenUrl(Updater.ReleasesPage);
+        panel.Children.Add(releases);
+        return panel;
     }
 
     UIElement Shortcuts()

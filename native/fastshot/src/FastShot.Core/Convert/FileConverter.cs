@@ -132,20 +132,6 @@ public static class FileConverter
 
     // MARK: Converting
 
-    /// <summary>Runs <see cref="Convert"/> on a dedicated STA thread (WPF imaging and text need one).</summary>
-    public static Task<List<string>> ConvertAsync(IReadOnlyList<string> paths, ConversionFormat format, Func<string, string> folder, double quality,
-                                                  Action<double> progress, CancellationToken cancellation = default)
-    {
-        var completion = new TaskCompletionSource<List<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var thread = new Thread(() =>
-        {
-            try { completion.SetResult(Convert(paths, format, folder, quality, progress, cancellation)); }
-            catch (Exception error) { completion.SetException(error); }
-        }) { IsBackground = true, Name = "FastShot conversion" };
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        return completion.Task;
-    }
 
     /// <summary>Converts the files, writing results into <paramref name="folder"/>(source). Several images going to PDF become one document.</summary>
     public static List<string> Convert(IReadOnlyList<string> paths, ConversionFormat format, Func<string, string> folder, double quality,

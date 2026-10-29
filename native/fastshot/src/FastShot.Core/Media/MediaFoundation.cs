@@ -67,7 +67,7 @@ internal static class MF
     public static Guid MF_MT_VIDEO_NOMINAL_RANGE = Guid("c21b8ee5-b956-4071-8daf-325edf5cab11");
     public static Guid MF_MT_VIDEO_PRIMARIES = Guid("dbfbe4d7-0740-4ee0-8192-850ab0e21935");
     public static Guid MF_MT_TRANSFER_FUNCTION = Guid("5fb0fce9-be5c-4935-a811-ec838f8eed93");
-    public static Guid IID_IMF2DBuffer = Guid("7DC9D5F9-9ED9-44ec-9BBF-0600BB589FBB");
+
     public const uint MF_SOURCE_READER_FIRST_AUDIO_STREAM = 0xFFFFFFFD;
     public const uint MF_SOURCE_READER_ANY_STREAM = 0xFFFFFFFE;
     public const uint MFVideoTransferMatrix_BT709 = 1;

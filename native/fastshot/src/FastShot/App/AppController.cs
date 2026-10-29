@@ -1,5 +1,4 @@
 using System.Windows.Threading;
-using FastShot.Core.Media;
 using Forms = System.Windows.Forms;
 
 namespace FastShot;
@@ -21,7 +20,8 @@ public sealed class AppController
     readonly DispatcherTimer hotkeyDebounce = new() { Interval = TimeSpan.FromMilliseconds(150) };
     Forms.NotifyIcon tray = null!;
     Forms.ContextMenuStrip menu = null!;
-    Forms.ToolStripMenuItem screenshotItem = null!, recordItem = null!, lastCaptureItem = null!;
+    Forms.ToolStripMenuItem screenshotItem = null!, recordItem = null!, lastCaptureItem = null!, updateItem = null!;
+    Forms.ToolStripSeparator updateSeparator = null!;
     System.Drawing.Icon idleIcon = null!, recordingIcon = null!;
     CaptureSession? capture;
     RecordingSession? recording;
@@ -48,6 +48,7 @@ public sealed class AppController
         center.OnOpenFile = Open;
         center.OnConvertFile = QueueConversion;
         center.OnCommand = RunCommand;
+        center.Embedded = Embedded;
         if (Embedded) TakePrintScreenOnce();
         RegisterHotkeys();
         convertDebounce.Tick += (_, _) =>
@@ -64,6 +65,7 @@ public sealed class AppController
             UpdateMenuShortcuts();
             ApplyShellIntegration();
             ReportState();
+            tray.Visible = TrayVisible;
         };
         prefs.Changed += () =>
         {
@@ -80,6 +82,15 @@ public sealed class AppController
             // The host explains FastShot in its own words.
             prefs.Onboarded = true;
         }
+        if (Installer.RunningInstalled && !Embedded)
+        {
+            // An install moves FastShot; Windows should start the copy that is here now.
+            if (Preferences.LaunchAtLogin) Preferences.LaunchAtLogin = true;
+            Updater.Shared.Changed += UpdateUpdateItem;
+            Updater.Shared.Start();
+        }
+        if (launchArguments.Contains(Installer.UpdatedArgument))
+            Toast.Show($"FastShot {Installer.CurrentVersion.ToString(3)} sürümüne güncellendi", Icons.Check, "Yenilikler: Releases sayfası", "Göster", () => Output.OpenUrl(Updater.ReleasesPage));
         var files = launchArguments.Where(a => !a.StartsWith('-')).ToList();
         if (launchArguments.Contains("--convert"))
         {
@@ -274,6 +285,7 @@ public sealed class AppController
             case "open": OpenFile(); break;
             case "wheel": ConversionCenter.Shared.ChooseFiles(); break;
             case "settings": OpenSettings(); break;
+            case "quit": Quit(); break;
         }
     }
 
@@ -427,6 +439,11 @@ public sealed class AppController
             menu.Items.Add(item);
             return item;
         }
+        updateItem = Item("", () => _ = Updater.Shared.Install());
+        updateItem.Font = new System.Drawing.Font(updateItem.Font, System.Drawing.FontStyle.Bold);
+        updateSeparator = new Forms.ToolStripSeparator();
+        menu.Items.Add(updateSeparator);
+        UpdateUpdateItem();
         screenshotItem = Item("Ekran görüntüsü al", TakeScreenshot);
         recordItem = Item("Alanı videoya kaydet", RecordVideo);
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -442,7 +459,7 @@ public sealed class AppController
         menu.Opening += (_, _) => lastCaptureItem.Enabled = Library.AllProjects().Count > 0;
         UpdateMenuShortcuts();
 
-        tray = new Forms.NotifyIcon { Icon = idleIcon, Text = "FastShot", Visible = !Embedded, ContextMenuStrip = menu };
+        tray = new Forms.NotifyIcon { Icon = idleIcon, Text = "FastShot", Visible = TrayVisible, ContextMenuStrip = menu };
         tray.MouseUp += (_, e) =>
         {
             if (e.Button != Forms.MouseButtons.Left) return;
@@ -454,6 +471,20 @@ public sealed class AppController
             // Left click shows the same menu as right click, like the macOS menu bar item.
             typeof(Forms.NotifyIcon).GetMethod("ShowContextMenu", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.Invoke(tray, null);
         };
+    }
+
+    /// <summary>No icon inside Xloer, nor when Settings hides it.</summary>
+    bool TrayVisible => !Embedded && prefs.ShowTrayIcon;
+
+    /// <summary>"Güncelle: FastShot 1.2.0" at the top of the menu while a newer version is out.</summary>
+    void UpdateUpdateItem()
+    {
+        var updater = Updater.Shared;
+        var show = updater.State is Updater.Status.Available or Updater.Status.Downloading;
+        updateItem.Visible = updateSeparator.Visible = show;
+        updateItem.Enabled = updater.State == Updater.Status.Available;
+        if (updater.Available is { } release)
+            updateItem.Text = updater.State == Updater.Status.Downloading ? "Güncelleme indiriliyor…" : $"Güncelle: FastShot {release.Version.ToString(3)}";
     }
 
     void UpdateMenuShortcuts()

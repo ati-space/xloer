@@ -26,7 +26,7 @@ public readonly record struct RGBAColor
         return new RGBAColor(((number >> 16) & 0xFF) / 255.0, ((number >> 8) & 0xFF) / 255.0, (number & 0xFF) / 255.0);
     }
 
-    public static RGBAColor FromColor(Color c) => new(c.R / 255.0, c.G / 255.0, c.B / 255.0, c.A / 255.0);
+
 
     static byte Byte(double v) => (byte)Math.Round(Math.Clamp(v, 0, 1) * 255);
 

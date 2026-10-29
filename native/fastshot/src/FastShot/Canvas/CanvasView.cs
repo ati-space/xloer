@@ -113,7 +113,7 @@ public sealed class CanvasView : Canvas
         return new Rect(origin.X, origin.Y, r.Width * Scale, r.Height * Scale);
     }
 
-    public Rect CanvasRectInView => ToView(new Rect(canvasSize));
+
 
     double Tolerance => 8 / Scale;
 
@@ -183,8 +183,7 @@ public sealed class CanvasView : Canvas
         Focus();
         Keyboard.Focus(this);
         var p = ToCanvas(e.GetPosition(this));
-        var shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
-        var result = Controller.MouseDown(p, e.ClickCount, shift, Tolerance);
+        var result = Controller.MouseDown(p, e.ClickCount, Tolerance);
         routingToBackground = result == AnnotationController.MouseResult.Background;
         if (editingId is null) CaptureMouse();
         if (routingToBackground) OnBackgroundMouse?.Invoke(e, BackgroundMouse.Down);

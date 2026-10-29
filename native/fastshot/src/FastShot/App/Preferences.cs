@@ -1,7 +1,5 @@
-using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using FastShot.Core;
 
 namespace FastShot;
 
@@ -74,6 +72,8 @@ public sealed class Preferences
         public bool RecordSystemAudio;
         public bool RecordMicrophone;
         public bool PrintScreenTakenOver;
+        public bool ShowTrayIcon = true;
+        public bool CheckForUpdates = true;
         public double AnnotationLength = 3;
         public string LastColor = RGBAColor.Red.Hex;
         public int LastSize = 1;
@@ -140,6 +140,10 @@ public sealed class Preferences
     public bool RecordMicrophone { get => data.RecordMicrophone; set => Set(ref data.RecordMicrophone, value); }
     /// <summary>Set after FastShot turned off "Print Screen opens Snipping Tool", so it can be given back.</summary>
     public bool PrintScreenTakenOver { get => data.PrintScreenTakenOver; set => Set(ref data.PrintScreenTakenOver, value); }
+    /// <summary>The notification-area icon. Hidden, FastShot still runs; starting it again opens Settings.</summary>
+    public bool ShowTrayIcon { get => data.ShowTrayIcon; set => Set(ref data.ShowTrayIcon, value); }
+    /// <summary>The installed copy looks for new releases on GitHub (see Updater).</summary>
+    public bool CheckForUpdates { get => data.CheckForUpdates; set => Set(ref data.CheckForUpdates, value); }
     public bool ConvertEnabled { get => data.ConvertEnabled; set => Set(ref data.ConvertEnabled, value); }
     /// <summary>Opens the file wheel while files are dragged; tapping it again goes to the next wheel.</summary>
     public ConvertModifier ConvertModifier { get => data.ConvertModifier; set => Set(ref data.ConvertModifier, value); }

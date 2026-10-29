@@ -8,16 +8,16 @@ import { DEFAULT_PALETTE, PALETTES } from './themes.js';
 import { DEFAULT_DEVICES, DEFAULT_TEST_TYPES } from './invoices.js';
 import { merges118, similarGroups } from './devices.js';
 
-export const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 1;
 export const INBOX_ID = 'inbox';
 // Root tasks are depth 0, so MAX_DEPTH 4 allows five levels in total.
 export const MAX_DEPTH = 4;
-export const PRIORITIES = [0, 1, 2, 3]; // none, low, medium, high
+const PRIORITIES = [0, 1, 2, 3]; // none, low, medium, high
 // Where a report stands; a task's `stage` is an index into this or null.
 // Report stages are the user's own list (state.stages, edited under Aşama);
 // these are the first ones. A task keeps its stage's id, so renaming and
 // reordering stages leaves reports where they are.
-export const DEFAULT_STAGES = ['Test', 'Veri', 'Rapor', 'Müşteri', 'Fatura'];
+const DEFAULT_STAGES = ['Test', 'Veri', 'Rapor', 'Müşteri', 'Fatura'];
 const MAX_STAGES = 12;
 const defaultStages = () => DEFAULT_STAGES.map((name, i) => ({ id: `s${i}`, name }));
 const isStage = (state, id) => typeof id === 'string' && state.stages.some((st) => st.id === id);
@@ -25,11 +25,11 @@ const isStage = (state, id) => typeof id === 'string' && state.stages.some((st) 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-export function uid(prefix) {
+function uid(prefix) {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function defaultSettings() {
+function defaultSettings() {
   return {
     theme: 'dark', // dark | light | system
     palette: DEFAULT_PALETTE, // a colour theme from themes.js
@@ -316,7 +316,7 @@ function normalizeAliases(list) {
 }
 
 // The name a device goes by after merges.
-export function deviceAlias(state, name) {
+function deviceAlias(state, name) {
   const hit = (state.deviceAliases ?? []).find((a) => foldName(a.from) === foldName(name));
   return hit ? hit.to : name;
 }
@@ -343,7 +343,7 @@ function uniqueNames(arr) {
 
 // ---------------------------------------------------------------- queries
 
-export const byOrder = (a, b) => a.order - b.order;
+const byOrder = (a, b) => a.order - b.order;
 
 // Groups live tasks by their sibling group so tree walks are O(n).
 export function buildIndex(state) {
@@ -378,7 +378,7 @@ export function findTag(state, name) {
   return state.tags.find((g) => g.name.toLocaleLowerCase('tr') === key) ?? null;
 }
 
-export function descendants(index, id) {
+function descendants(index, id) {
   const out = [];
   const walk = (pid) => {
     for (const c of index.children(pid)) {
@@ -1177,7 +1177,7 @@ const handlers = {
 
 // The card an imported project belongs to: the same project code; without a
 // code, the same No and title.
-export function findInvoiceMatch(state, project, skip = new Set()) {
+function findInvoiceMatch(state, project, skip = new Set()) {
   const code = foldName(project.code ?? '');
   const free = state.invoices.filter((i) => !skip.has(i.id));
   if (!code) return free.find((i) => project.no && i.no === project.no && foldName(i.title) === foldName(project.title ?? '')) ?? null;

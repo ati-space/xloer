@@ -15,6 +15,11 @@ public static class Program
 
         // Run inside another app (Xloer), which passes its process id; see Embedding.
         var embedding = Embedding.From(ref args);
+        if (embedding is null)
+        {
+            if (args.Contains(Installer.UninstallArgument)) return Installer.Uninstall();
+            if (Installer.ShouldInstall(args)) return Installer.Install(quiet: args.Contains(Installer.UpdateArgument));
+        }
         using var mutex = new Mutex(true, @"Local\FastShot.SingleInstance", out var firstInstance);
         embedding?.Listen();
         if (!firstInstance && embedding is not null)

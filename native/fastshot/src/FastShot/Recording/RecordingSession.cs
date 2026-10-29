@@ -58,7 +58,6 @@ public sealed class RecordingSession
     }
 
     public double Elapsed => clock.Elapsed.TotalSeconds;
-    public bool IsActive => !finished;
 
     // MARK: Lifecycle
 
@@ -357,8 +356,6 @@ public sealed class RecordingSession
         hud.SetBounds(new Native.RECT(x, y, x + width, y + height));
     }
 
-    public bool IsDrawing => drawing;
-    public bool IsRecording => recording;
 
     public void ToggleDrawing() => SetDrawing(!drawing);
 

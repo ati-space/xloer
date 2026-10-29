@@ -84,6 +84,12 @@ public static class Output
         return path;
     }
 
+    public static void OpenUrl(string url)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception error) { ShowError(error, "Bağlantı açılamadı"); }
+    }
+
     public static void Reveal(string path)
     {
         try

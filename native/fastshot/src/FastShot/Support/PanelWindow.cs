@@ -104,12 +104,6 @@ public sealed class PanelWindow : IDisposable
         else Native.SetExStyle(Handle, 0, Native.WS_EX_TRANSPARENT);
     }
 
-    public void SetActivatable(bool on)
-    {
-        if (Source.IsDisposed) return;
-        if (on) Native.SetExStyle(Handle, 0, Native.WS_EX_NOACTIVATE);
-        else Native.SetExStyle(Handle, Native.WS_EX_NOACTIVATE);
-    }
 
     /// <summary>Keeps this window out of screenshots and recordings (Windows 10 2004+).</summary>
     public void ExcludeFromCapture()

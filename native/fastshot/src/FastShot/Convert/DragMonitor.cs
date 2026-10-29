@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using System.Windows.Threading;
-using FastShot.Core.Convert;
 
 namespace FastShot;
 

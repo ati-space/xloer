@@ -11,7 +11,7 @@ export function fold(text) {
 
 // Folded text plus, for every folded char, the index of the source char it
 // came from (and one trailing sentinel), so matches can be mapped back.
-export function foldWithMap(text) {
+function foldWithMap(text) {
   let out = '';
   const map = [];
   let i = 0;

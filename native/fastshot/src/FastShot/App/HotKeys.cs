@@ -85,7 +85,9 @@ public sealed record KeyCombo(uint VirtualKey, uint Modifiers)
 public sealed class HotKeyCenter
 {
     public const string WindowTitle = "FastShot.MessageWindow";
-    public static HotKeyCenter Shared { get; } = new();
+    static HotKeyCenter? shared;
+    /// <summary>Created on first use, so a process that only signals another FastShot opens no window of its own.</summary>
+    public static HotKeyCenter Shared => shared ??= new();
 
     /// <summary>Registers the app's shortcuts again after a suspension ends.</summary>
     public Action? Reregister { get; set; }
@@ -97,6 +99,10 @@ public sealed class HotKeyCenter
     /// <summary>A menu command (screenshot, record, …) an embedded FastShot passes on while this one runs; see Embedding.</summary>
     public Action<string>? OnCommand { get; set; }
     public const string CommandPrefix = "command:";
+    /// <summary>Asks a FastShot to quit (the installer does, before replacing it). One inside Xloer refuses.</summary>
+    public const string QuitRequest = CommandPrefix + "quit";
+    /// <summary>Runs inside another app, which decides when it quits.</summary>
+    public bool Embedded { get; set; }
 
     /// <summary>Shortcuts that could not be registered because another app already owns them.</summary>
     public HashSet<KeyCombo> Failed { get; } = [];
@@ -136,6 +142,7 @@ public sealed class HotKeyCenter
             if (data.Pointer != IntPtr.Zero && data.Length > 0)
             {
                 var path = Marshal.PtrToStringUni(data.Pointer, data.Length / 2).TrimEnd('\0');
+                if (path == QuitRequest && Embedded) return new IntPtr(2);
                 if (path.StartsWith(ConvertPrefix, StringComparison.Ordinal))
                     Application.Current.Dispatcher.BeginInvoke(() => OnConvertFile?.Invoke(path[ConvertPrefix.Length..]));
                 else if (path.StartsWith(CommandPrefix, StringComparison.Ordinal))
@@ -188,22 +195,42 @@ public sealed class HotKeyCenter
     /// <summary>Hands an open request to a FastShot that is already running. Returns false when none is.</summary>
     public static bool SignalRunningInstance(string? path)
     {
-        var window = Native.FindWindowEx(Native.HWND_MESSAGE, IntPtr.Zero, null, WindowTitle);
+        var (pid, window) = RunningInstances().FirstOrDefault(i => i.pid != Environment.ProcessId);
         if (window == IntPtr.Zero) return false;
-        Native.GetWindowThreadProcessId(window, out var pid);
-        Native.AllowSetForegroundWindow(pid);
+        Native.AllowSetForegroundWindow((uint)pid);
         if (string.IsNullOrEmpty(path))
         {
             Native.PostMessage(window, ReopenMessage, IntPtr.Zero, IntPtr.Zero);
             return true;
         }
+        Send(window, path);
+        return true;
+    }
+
+    /// <summary>Every running FastShot (with its message window): process id and window.</summary>
+    public static List<(int pid, IntPtr window)> RunningInstances()
+    {
+        var found = new List<(int, IntPtr)>();
+        for (var window = Native.FindWindowEx(Native.HWND_MESSAGE, IntPtr.Zero, null, WindowTitle); window != IntPtr.Zero;
+             window = Native.FindWindowEx(Native.HWND_MESSAGE, window, null, WindowTitle))
+        {
+            Native.GetWindowThreadProcessId(window, out var owner);
+            found.Add(((int)owner, window));
+        }
+        return found;
+    }
+
+    /// <summary>Sends a request to one FastShot's window; false when it refused (a FastShot inside Xloer refuses to quit).</summary>
+    public static bool Signal(IntPtr window, string text) => Send(window, text) != 2;
+
+    static long Send(IntPtr window, string path)
+    {
         var text = Marshal.StringToHGlobalUni(path + "\0");
         try
         {
             var data = new Native.COPYDATASTRUCT { Data = new IntPtr(1), Length = (path.Length + 1) * 2, Pointer = text };
-            Native.SendMessage(window, Native.WM_COPYDATA, IntPtr.Zero, ref data);
+            return Native.SendMessage(window, Native.WM_COPYDATA, IntPtr.Zero, ref data).ToInt64();
         }
         finally { Marshal.FreeHGlobal(text); }
-        return true;
     }
 }

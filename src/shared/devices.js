@@ -15,7 +15,7 @@ const GENERIC = new Set(['elektrodinamik', 'sarsici', 'kabin', 'kabini', 'sistem
 // shaker named 50kN is the 49kN one.
 const SAME_AS = [{ test: (f) => /(^|\s)50\s?kn(\s|$)/.test(f) && f.includes('sarsici'), name: '49kN Sarsıcı' }];
 
-export function systemKey(name) {
+function systemKey(name) {
   const f = fold(name);
   const same = SAME_AS.find((s) => s.test(f));
   if (same) return systemKey(same.name);

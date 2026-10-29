@@ -77,7 +77,7 @@ sealed class PdfLexer(byte[] data, int position = 0)
     static bool IsWhite(byte b) => b is 0 or 9 or 10 or 12 or 13 or 32;
     static bool IsDelimiter(byte b) => b is (byte)'(' or (byte)')' or (byte)'<' or (byte)'>' or (byte)'[' or (byte)']' or (byte)'{' or (byte)'}' or (byte)'/' or (byte)'%';
 
-    public bool AtEnd => Position >= data.Length;
+
 
     public void SkipWhite()
     {
@@ -426,7 +426,7 @@ public sealed class PdfFile
         return result;
     }
 
-    public IEnumerable<int> ObjectNumbers => offsets.Keys.Concat(packed.Keys);
+
 
     (int number, PdfObject? value) ParseIndirect(int offset)
     {
@@ -792,7 +792,7 @@ public sealed class PdfCopier(PdfFile source, PdfBuilder target)
         return new PdfReference(targetNumber, 0);
     }
 
-    public bool IsMapped(int sourceNumber) => map.ContainsKey(sourceNumber);
+
 
     public PdfObject Copy(PdfObject value)
     {
