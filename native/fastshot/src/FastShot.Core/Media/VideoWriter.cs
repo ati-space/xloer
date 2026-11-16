@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace FastShot.Core.Media;
 
 /// <summary>Sample rate and channel count of 16-bit PCM audio.</summary>
@@ -14,12 +16,12 @@ public sealed unsafe class VideoWriter : IDisposable
     public int Width { get; }
     public int Height { get; }
     public int FramesPerSecond { get; }
-    public bool HEVC { get; }
-    public AudioFormat? Audio { get; }
+    public bool HEVC { get; private set; }
+    public AudioFormat? Audio { get; private set; }
 
     IMFSinkWriter? writer;
-    readonly uint videoStream;
-    readonly uint audioStream;
+    uint videoStream;
+    uint audioStream;
     readonly object gate = new();
     bool finished;
     long lastVideoTime = -1;
@@ -32,11 +34,40 @@ public sealed unsafe class VideoWriter : IDisposable
         Height = height;
         FramesPerSecond = Math.Max(1, framesPerSecond);
 
+        try
+        {
+            try { Initialize(path, hevc, bitrate, audio); }
+            catch (MediaException) when (hevc && writer is not null)
+            {
+                // Some systems accept the HEVC output type, then fail at SetInputMediaType
+                // or BeginWriting. Start a fresh sink writer for H.264 in all of those cases.
+                MF.Release(writer);
+                writer = null;
+                File.Delete(path);
+                Initialize(path, false, bitrate, audio);
+            }
+        }
+        catch
+        {
+            MF.Release(writer);
+            writer = null;
+            throw;
+        }
+    }
+
+    void Initialize(string path, bool hevc, int? bitrate, AudioFormat? audio)
+    {
+        var width = Width;
+        var height = Height;
+        HEVC = hevc;
+        Audio = null;
+        videoStream = audioStream = 0;
+
         MF.Check(MF.MFCreateAttributes(out var attributes, 2), "MFCreateAttributes");
         attributes.SetUINT32(ref MF.MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, 1);
         attributes.SetUINT32(ref MF.MF_SINK_WRITER_DISABLE_THROTTLING, 1);
-        MF.Check(MF.MFCreateSinkWriterFromURL(path, IntPtr.Zero, attributes, out writer), "Video dosyası oluşturma");
-        MF.Release(attributes);
+        try { MF.Check(MF.MFCreateSinkWriterFromURL(path, IntPtr.Zero, attributes, out writer), "Video dosyası oluşturma"); }
+        finally { MF.Release(attributes); }
 
         var bits = bitrate ?? DefaultBitrate(width, height, FramesPerSecond);
         MF.Check(MF.MFCreateMediaType(out var output), "MFCreateMediaType");
@@ -50,15 +81,6 @@ public sealed unsafe class VideoWriter : IDisposable
         output.SetUINT64(ref MF.MF_MT_PIXEL_ASPECT_RATIO, MF.Pack(1, 1));
         SetColorInfo(output);
         var hr = writer.AddStream(output, out videoStream);
-        HEVC = hevc;
-        if (hr < 0 && hevc)
-        {
-            // No HEVC encoder on this machine: fall back to H.264.
-            var h264 = MF.MFVideoFormat_H264;
-            output.SetGUID(ref MF.MF_MT_SUBTYPE, ref h264);
-            HEVC = false;
-            hr = writer.AddStream(output, out videoStream);
-        }
         MF.Release(output);
         MF.Check(hr, "Video kodlayıcı");
 

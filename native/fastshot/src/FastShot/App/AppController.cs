@@ -27,13 +27,18 @@ public sealed class AppController
     RecordingSession? recording;
     SettingsWindow? settings;
     LibraryWindow? libraryWindow;
+    CaptureQueueWindow? captureQueue;
+    ScrollingCaptureSession? scrolling;
     bool startingCapture;
+    bool quitting;
+    readonly ShutdownCoordinator shutdown;
 
     public AppController(string[] arguments, Embedding? embedding = null)
     {
         shared = this;
         launchArguments = arguments;
         this.embedding = embedding;
+        shutdown = new ShutdownCoordinator(PrepareForExit, Shutdown);
     }
 
     /// <summary>Runs inside another app (Xloer) with no tray icon of its own.</summary>
@@ -87,6 +92,7 @@ public sealed class AppController
             // An install moves FastShot; Windows should start the copy that is here now.
             if (Preferences.LaunchAtLogin) Preferences.LaunchAtLogin = true;
             Updater.Shared.Changed += UpdateUpdateItem;
+            Updater.Shared.IsBusy = () => Busy;
             Updater.Shared.Start();
         }
         if (launchArguments.Contains(Installer.UpdatedArgument))
@@ -178,6 +184,40 @@ public sealed class AppController
 
     public void TakeScreenshot() => StartCapture(CaptureSession.CaptureMode.Screenshot);
 
+    public void ShowCaptureQueue()
+    {
+        if (captureQueue is null)
+        {
+            captureQueue = new CaptureQueueWindow(() => StartCapture(CaptureSession.CaptureMode.Queue));
+            captureQueue.Closed += (_, _) => captureQueue = null;
+        }
+        captureQueue.ReturnToQueue();
+    }
+
+    void EnqueueCapture(BitmapSource image)
+    {
+        ShowCaptureQueue();
+        captureQueue!.Add(image);
+    }
+
+    void StartScrolling(RecordRequest request)
+    {
+        if (scrolling is not null || quitting) return;
+        var session = new ScrollingCaptureSession(request, (image, scale) =>
+        {
+            try
+            {
+                var stored = Library.MakeProject(CaptureKind.image, new Size(image.PixelWidth / scale, image.PixelHeight / scale), scale, "png");
+                File.WriteAllBytes(Library.MediaPath(stored), ImageExporter.Encode(image, ImageFormat.Png, pointScale: scale));
+                Library.Save(stored); Library.WriteThumbnail(image, stored); NotifyLibraryChanged(); OpenEditor(stored);
+            }
+            catch (Exception error) { Output.ShowError(error, "Kaydırmalı görüntü kaydedilemedi"); }
+        });
+        scrolling = session;
+        session.Finished += () => { if (scrolling == session) scrolling = null; };
+        session.Show();
+    }
+
     public void RecordVideo()
     {
         if (recording is not null)
@@ -190,21 +230,24 @@ public sealed class AppController
 
     void StartCapture(CaptureSession.CaptureMode mode)
     {
-        if (capture is not null || startingCapture) return;
+        if (quitting || capture is not null || scrolling is not null || startingCapture) { if (mode == CaptureSession.CaptureMode.Queue) captureQueue?.ReturnToQueue(); return; }
         if (mode == CaptureSession.CaptureMode.Video && recording is not null) return;
         startingCapture = true;
         try
         {
             var rects = ScreenGrabber.WindowRects();
             var shots = ScreenGrabber.CaptureAll();
-            if (shots.Count == 0) return;
+            if (shots.Count == 0) { if (mode == CaptureSession.CaptureMode.Queue) captureQueue?.ReturnToQueue(); return; }
             var session = new CaptureSession(mode, shots, rects);
             session.OnFinish = finished =>
             {
                 if (capture == finished) capture = null;
                 HotKeyCenter.Shared.Resume();
+                if (mode == CaptureSession.CaptureMode.Queue) Application.Current.Dispatcher.BeginInvoke(() => captureQueue?.ReturnToQueue());
             };
             session.OnRecord = StartRecording;
+            session.OnScroll = StartScrolling;
+            session.OnEnqueue = EnqueueCapture;
             session.OnOpenEditor = OpenEditor;
             capture = session;
             // The overlay's own shortcuts (Ctrl+C, Ctrl+S…) must not be swallowed by global ones.
@@ -215,6 +258,7 @@ public sealed class AppController
         {
             capture = null;
             Output.ShowError(error, "Ekran görüntüsü alınamadı");
+            if (mode == CaptureSession.CaptureMode.Queue) captureQueue?.ReturnToQueue();
         }
         finally
         {
@@ -224,7 +268,7 @@ public sealed class AppController
 
     void StartRecording(RecordRequest request)
     {
-        if (recording is not null) return;
+        if (quitting || recording is not null) return;
         var session = new RecordingSession(request);
         recording = session;
         SetRecordingStatus(true);
@@ -237,6 +281,7 @@ public sealed class AppController
         {
             recording = null;
             SetRecordingStatus(false);
+            if (quitting) return;
             if (project is null) return;
             if (prefs.OpenEditorAfterRecording) OpenEditor(project);
             else ExportRecording(project);
@@ -280,9 +325,12 @@ public sealed class AppController
         {
             case "screenshot": TakeScreenshot(); break;
             case "record": RecordVideo(); break;
+            case "capture-queue": ShowCaptureQueue(); break;
+            case "scrolling-capture": StartCapture(CaptureSession.CaptureMode.Scrolling); break;
             case "edit-last": EditLastCapture(); break;
             case "history": ShowLibrary(); break;
             case "open": OpenFile(); break;
+            case "open-project": OpenProjectFolder(); break;
             case "wheel": ConversionCenter.Shared.ChooseFiles(); break;
             case "translate": TranslateCard.Show(""); break;
             case "settings": OpenSettings(); break;
@@ -446,6 +494,8 @@ public sealed class AppController
         menu.Items.Add(updateSeparator);
         UpdateUpdateItem();
         screenshotItem = Item("Ekran görüntüsü al", TakeScreenshot);
+        Item("Kaydırmalı ekran görüntüsü…", () => StartCapture(CaptureSession.CaptureMode.Scrolling));
+        Item("Yakalama kuyruğu…", ShowCaptureQueue);
         recordItem = Item("Alanı videoya kaydet", RecordVideo);
         menu.Items.Add(new Forms.ToolStripSeparator());
         lastCaptureItem = Item("Son yakalamayı düzenle", EditLastCapture);
@@ -478,13 +528,19 @@ public sealed class AppController
     /// <summary>No icon inside Xloer, nor when Settings hides it.</summary>
     bool TrayVisible => !Embedded && prefs.ShowTrayIcon;
 
+    /// <summary>Something the user is in the middle of, which an automatic update waits for: a capture, a recording, an open
+    /// editor, crop window, capture queue or translation, or files being converted.</summary>
+    bool Busy => startingCapture || capture is not null || recording is not null || scrolling is not null || editors.Count > 0
+                 || captureQueue is not null || ConversionCenter.Shared.IsBusy
+                 || Application.Current.Windows.OfType<Window>().Any(w => w.IsVisible && w is CropWindow or TranslateCard);
+
     /// <summary>"Güncelle: FastShot 1.2.0" at the top of the menu while a newer version is out.</summary>
     void UpdateUpdateItem()
     {
         var updater = Updater.Shared;
-        var show = updater.State is Updater.Status.Available or Updater.Status.Downloading;
+        var show = updater.State is Updater.Status.Available or Updater.Status.Downloading or Updater.Status.Ready;
         updateItem.Visible = updateSeparator.Visible = show;
-        updateItem.Enabled = updater.State == Updater.Status.Available;
+        updateItem.Enabled = updater.State is Updater.Status.Available or Updater.Status.Ready;
         if (updater.Available is { } release)
             updateItem.Text = updater.State == Updater.Status.Downloading ? "Güncelleme indiriliyor…" : $"Güncelle: FastShot {release.Version.ToString(3)}";
     }
@@ -512,13 +568,31 @@ public sealed class AppController
         MessageBox.Show(text, "FastShot hazır", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    public void Quit()
+    public Task PrepareToQuit() => shutdown.PrepareAsync();
+    public void ResumeAfterFailedUpdate()
     {
+        if (shutdown.ResetPreparation()) quitting = false;
+    }
+
+    public async void Quit()
+    {
+        try { await shutdown.QuitAsync(); }
+        catch (Exception error) { Output.ShowError(error, "FastShot kapatılamadı"); }
+    }
+
+    async Task PrepareForExit()
+    {
+        quitting = true;
         ConversionCenter.Shared.Cancel();
+        capture?.Cancel();
+        if (scrolling is { } activeScroll) await activeScroll.CancelAsync();
+        if (recording is { } active) await active.StopAsync();
+    }
+
+    void Shutdown()
+    {
         DragMonitor.Shared.Stop();
         OfflineTranslator.Shared.Close();
-        recording?.Cancel();
-        capture?.Cancel();
         foreach (var editor in editors.ToList()) editor.Close();
         HotKeyCenter.Shared.UnregisterAll();
         tray.Visible = false;

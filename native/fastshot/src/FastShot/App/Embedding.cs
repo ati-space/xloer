@@ -8,7 +8,8 @@ namespace FastShot;
 /// icon of its own. Shortcuts, capture, recording, editors, history, settings and the file wheel all work as usual.
 ///
 /// The host talks to it over the standard streams, one line each:
-/// - stdin: commands (screenshot, record, edit-last, history, open, wheel, settings). End of input means the host closed.
+/// - stdin: commands, the same as the tray menu (screenshot, scrolling-capture, capture-queue, record, edit-last, history,
+///   open, open-project, wheel, translate, settings, quit; see AppController.RunCommand). End of input means the host closed.
 /// - stdout: JSON state for the host's menu: {"type":"state","screenshot":"Print Screen","record":"…","recording":false}.
 /// FastShot also quits when the host's process ends. While a standalone FastShot runs, the embedded one waits and
 /// passes the host's commands on to it; it takes over once that one quits.</summary>

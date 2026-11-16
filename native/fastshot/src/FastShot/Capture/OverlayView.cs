@@ -502,8 +502,7 @@ public sealed class OverlayView : Canvas
                 return true;
             case Key.Enter:
                 if (IsChoosing) SelectWholeScreen();
-                else if (IsVideo) session.Record();
-                else session.Copy();
+                else session.PerformDefaultAction();
                 return true;
         }
         if (IsChoosing) return false;
@@ -522,6 +521,8 @@ public sealed class OverlayView : Canvas
                 case Key.P: if (!IsVideo) session.Pin(); return true;
                 case Key.T: if (!IsVideo) session.RecognizeText(); return true;
                 case Key.R: session.Record(); return true;
+                case Key.Q: if (!IsVideo) session.Enqueue(); return true;
+                case Key.J: if (!IsVideo) session.Scroll(); return true;
             }
         }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key == Key.S && !IsVideo)
@@ -576,10 +577,10 @@ public sealed class OverlayView : Canvas
             Children.Add(canvas);
             CanvasView = canvas;
 
-            palette = OverlayToolbars.Palette(session.Tools, session.Controller.Undo, session.Controller.Redo);
+            palette = FitChrome(OverlayToolbars.Palette(session.Tools, session.Controller.Undo, session.Controller.Redo));
             Children.Add(palette);
         }
-        actionBar = OverlayToolbars.ActionBar(session);
+        actionBar = FitChrome(OverlayToolbars.ActionBar(session));
         Children.Add(actionBar);
         LayoutChrome();
         var target = (IInputElement?)CanvasView ?? this;
@@ -601,24 +602,12 @@ public sealed class OverlayView : Canvas
     void LayoutChrome()
     {
         if (Selection is not { } selection) return;
-        const double margin = 8 - Ui.ChromeMargin, inset = 6 - Ui.ChromeMargin;
-        if (palette is not null)
-        {
-            palette.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            var size = palette.DesiredSize;
-            var x = selection.Right + margin;
-            if (x + size.Width > Width - inset)
-            {
-                x = selection.Left - margin - size.Width;
-                if (x < inset) x = selection.Right - size.Width - margin;
-            }
-            var y = Math.Min(Math.Max(inset, selection.Top), Height - size.Height - inset);
-            SetLeft(palette, Math.Max(inset, x));
-            SetTop(palette, y);
-        }
+        const double margin = 8, inset = 6;
+        var available = new Size(Math.Max(1, Width - 2 * inset), Math.Max(1, Height - 2 * inset));
+        Rect? actionBounds = null;
         if (actionBar is not null)
         {
-            actionBar.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            actionBar.Measure(available);
             var size = actionBar.DesiredSize;
             var y = selection.Bottom + margin;
             if (y + size.Height > Height - inset)
@@ -626,9 +615,53 @@ public sealed class OverlayView : Canvas
                 y = selection.Top - margin - size.Height;
                 if (y < inset) y = selection.Bottom - size.Height - margin;
             }
-            var x = Math.Min(Math.Max(inset, selection.Right - size.Width), Width - size.Width - inset);
+            var x = ClampChrome(selection.Right - size.Width, Width, size.Width);
+            y = ClampChrome(y, Height, size.Height);
             SetLeft(actionBar, x);
             SetTop(actionBar, y);
+            actionBounds = new Rect(new Point(x, y), size);
         }
+        if (palette is not null)
+        {
+            palette.Measure(available);
+            var size = palette.DesiredSize;
+            var x = selection.Right + margin;
+            if (x + size.Width > Width - inset)
+            {
+                x = selection.Left - margin - size.Width;
+                if (x < inset) x = selection.Right - size.Width - margin;
+            }
+            x = ClampChrome(x, Width, size.Width);
+            var y = ClampChrome(selection.Top, Height, size.Height);
+            if (actionBounds is { } actions && actions.IntersectsWith(new Rect(new Point(x, y), size)))
+            {
+                // At high DPI the two bars may both have to fit inside the selection.
+                // Reserve a band above or below the actions so every button stays clickable.
+                var above = actions.Top - margin - inset;
+                var below = Height - inset - actions.Bottom - margin;
+                var useAbove = above >= below;
+                palette.Measure(new Size(available.Width, Math.Max(1, useAbove ? above : below)));
+                size = palette.DesiredSize;
+                x = ClampChrome(x, Width, size.Width);
+                y = useAbove ? inset : actions.Bottom + margin;
+            }
+            SetLeft(palette, x);
+            SetTop(palette, ClampChrome(y, Height, size.Height));
+        }
+    }
+
+    static FrameworkElement FitChrome(FrameworkElement content) => new Viewbox
+    {
+        Child = content, Stretch = Stretch.Uniform, StretchDirection = System.Windows.Controls.StretchDirection.DownOnly,
+    };
+
+    static double ClampChrome(double value, double extent, double size) => Math.Clamp(value, 0, Math.Max(0, extent - size));
+
+    protected override Size MeasureOverride(Size constraint)
+    {
+        // Re-measure after styles, DPI or available size change; the first selection can precede layout.
+        var desired = base.MeasureOverride(constraint);
+        LayoutChrome();
+        return desired;
     }
 }

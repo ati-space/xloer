@@ -31,6 +31,18 @@ public static class Native
     public const int CURSOR_SHOWING = 1;
     public const uint DI_NORMAL = 3;
     public const uint ASFW_ANY = unchecked((uint)-1);
+    [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int key);
+    [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT point);
+    [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr window, uint flags);
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [StructLayout(LayoutKind.Sequential)]
+    struct MOUSEINPUT { public int X, Y; public uint Data, Flags, Time; public UIntPtr Extra; }
+    [StructLayout(LayoutKind.Sequential)]
+    struct MOUSE_INPUT { public uint Type; public MOUSEINPUT Mouse; }
+    [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint count, MOUSE_INPUT[] inputs, int size);
+
+    /// <summary>Use the normal Windows input path: Chromium ignores posted wheel messages.</summary>
+    public static bool ScrollWheel(int delta) => SendInput(1, [new MOUSE_INPUT { Mouse = new MOUSEINPUT { Data = unchecked((uint)delta), Flags = 0x0800 } }], Marshal.SizeOf<MOUSE_INPUT>()) == 1;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT

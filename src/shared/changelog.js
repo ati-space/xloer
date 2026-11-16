@@ -8,6 +8,22 @@ export const KINDS = { new: 'Yeni', better: 'İyileştirme', fix: 'Düzeltme' };
 
 export const CHANGELOG = [
   {
+    version: '1.23.0',
+    date: '2026-11-16',
+    title: 'FastShot 1.3.3: ayarlar korunur, kaydırmalı yakalama, çeviri',
+    items: [
+      ['fix', 'FastShot’ın kısayolları ve ayarları Windows yeniden başlayınca artık varsayılana dönmüyor: Xloer’in içindeki FastShot açılışta ayarları okuyamayıp varsayılanları üstlerine yazıyordu. Ayarlarınızı bir kez yeniden yapmanız gerekebilir'],
+      ['fix', 'Ekran kaydı hemen durmuyor ("Specified cast is not valid"); sistem sesi ve mikrofonla da kaydediyor'],
+      ['new', 'Kaydırmalı ekran görüntüsü: sayfayı kaydırdıkça görüntü canlı önizlemede birleşir, Bitir ile düzenleyicide açılır. Sistem tepsisi › FastShot ya da seçim sırasında Ctrl+J'],
+      ['new', 'Yakalama kuyruğu: birkaç alanı peş peşe ekleyip sıralayın, çok sayfalı PDF veya tek PNG olarak kaydedin. Sistem tepsisi › FastShot ya da seçim sırasında Ctrl+Q'],
+      ['new', 'Video kaydında Duraklat / Devam et; isteğe bağlı tıklama vurguları (FastShot ayarları › Video)'],
+      ['new', 'Metni tanı ve çevir (Ctrl+Shift+T): çeviri imlecin yanında bir kartta açılır; çevrimdışı ya da kendi DeepL anahtarınızla'],
+      ['better', 'Kısayol olarak tek bir tuş da atanabiliyor (ör. P, F8 veya Print Screen)'],
+      ['better', 'Sistem tepsisi › FastShot menüsünde ayrı FastShot’ın bütün komutları var: FastShot projesi aç… da eklendi'],
+      ['better', 'Dosya çarkı sürüklerken AltGr ile açılır (FastShot ayarları › Dosya çarkı’ndan Shift, Ctrl veya Alt yapılabilir); çizim kalınlıkları 1, 2, 3, 5 ve 8 pt'],
+    ],
+  },
+  {
     version: '1.22.0',
     date: '2026-10-29',
     title: 'Ekran görüntüsü ve ekran kaydı (FastShot)',

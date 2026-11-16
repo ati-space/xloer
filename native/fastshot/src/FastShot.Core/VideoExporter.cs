@@ -126,31 +126,53 @@ public static class VideoExporter
     /// <summary>Writes an MP4 (or GIF) with the annotations burned in. Untouched recordings are copied.</summary>
     public static void Export(VideoExportRequest request, string outputPath, VideoFormat format, Action<double> progress, CancellationToken cancellation = default)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         if (format == VideoFormat.Gif)
         {
             ExportGif(request, outputPath, progress, cancellation: cancellation);
             return;
         }
-        if (File.Exists(outputPath)) File.Delete(outputPath);
+        WriteOutput(request.Source, outputPath, temp => ExportMp4(request, temp, progress, cancellation), cancellation);
+        progress(1);
+    }
+
+    // Keep the previous output until encoding and cancellation checks have succeeded.
+    static void WriteOutput(string source, string destination, Action<string> write, CancellationToken cancellation)
+    {
+        var output = Path.GetFullPath(destination);
+        if (string.Equals(Path.GetFullPath(source), output, StringComparison.OrdinalIgnoreCase))
+            throw new VideoExportException("Orijinal videonun üzerine yazılamaz. Başka bir dosya seçin.");
+        cancellation.ThrowIfCancellationRequested();
+        var folder = Path.GetDirectoryName(output)!;
+        Directory.CreateDirectory(folder);
+        var temp = Path.Combine(folder, $".{Path.GetFileNameWithoutExtension(output)}.{Guid.NewGuid():N}{Path.GetExtension(output)}");
+        try
+        {
+            write(temp);
+            cancellation.ThrowIfCancellationRequested();
+            File.Move(temp, output, overwrite: true);
+        }
+        finally { Convert.FileConverter.TryDelete(temp); }
+    }
+
+    static void ExportMp4(VideoExportRequest request, string outputPath, Action<double> progress, CancellationToken cancellation)
+    {
         using var reader = new VideoReader(request.Source, audio: request.IncludeAudio);
         var duration = reader.Duration;
         (double start, double end)? trim = request.Trim is { } range && !(range.start <= 0.01 && range.end >= duration - 0.01) ? range : null;
         var sameContainer = Path.GetExtension(request.Source).Equals(".mp4", StringComparison.OrdinalIgnoreCase);
-        if (request.Annotations.Count == 0 && trim is null && sameContainer && !request.ForceReencode)
+        var codecMatches = reader.Codec == (request.PreferHEVC ? MF.MFVideoFormat_HEVC : MF.MFVideoFormat_H264);
+        if (request.Annotations.Count == 0 && trim is null && sameContainer && !request.ForceReencode && codecMatches
+            && request.MaxSize is null && request.BitrateScale == 1 && (request.IncludeAudio || !reader.HasAudioTrack))
         {
             File.Copy(request.Source, outputPath, overwrite: true);
-            progress(1);
             return;
         }
         var start = trim?.start ?? 0;
         var end = trim?.end ?? duration;
         var fps = (int)Math.Clamp(Math.Round(reader.FrameRate), 1, 120);
-        // The sink writer picks the container from the extension, so the temporary file keeps .mp4.
-        var temp = Path.Combine(Path.GetDirectoryName(outputPath)!, $".{Path.GetFileNameWithoutExtension(outputPath)}.{Guid.NewGuid():N}.mp4");
         var (outWidth, outHeight) = OutputSize(reader.Width, reader.Height, request.MaxSize);
         var bitrate = (int)(VideoWriter.DefaultBitrate(outWidth, outHeight, fps) * request.BitrateScale);
-        using (var writer = new VideoWriter(temp, outWidth, outHeight, fps, request.PreferHEVC, bitrate, audio: reader.Audio))
+        using (var writer = new VideoWriter(outputPath, outWidth, outHeight, fps, request.PreferHEVC, bitrate, audio: reader.Audio))
         {
             var renderer = new AnnotationFrameRenderer(request.CanvasSize, request.Annotations);
             reader.Seek(start);
@@ -198,8 +220,6 @@ public static class VideoExporter
             if (written == 0) throw new VideoExportException("Videodan kare okunamadı.");
             writer.Finish();
         }
-        File.Move(temp, outputPath, overwrite: true);
-        progress(1);
     }
 
     /// <summary>Fits the frame inside <paramref name="max"/> (turned for portrait video), even-sized for the encoder.</summary>
@@ -214,6 +234,12 @@ public static class VideoExporter
 
     /// <summary>Renders an animated GIF of the (trimmed) recording with its annotations.</summary>
     public static void ExportGif(VideoExportRequest request, string outputPath, Action<double> progress, double fps = 12, int maxWidth = 1000, CancellationToken cancellation = default)
+    {
+        WriteOutput(request.Source, outputPath, temp => WriteGif(request, temp, progress, fps, maxWidth, cancellation), cancellation);
+        progress(1);
+    }
+
+    static void WriteGif(VideoExportRequest request, string outputPath, Action<double> progress, double fps, int maxWidth, CancellationToken cancellation)
     {
         using var reader = new VideoReader(request.Source);
         var duration = reader.Duration;
@@ -246,7 +272,6 @@ public static class VideoExporter
         }
         if (frames.Count == 0) throw new VideoExportException("Videodan kare okunamadı.");
         GifWriter.Write(outputPath, frames, step);
-        progress(1);
     }
 
     /// <summary>A still of the recording at <paramref name="time"/>, used for thumbnails and paused previews.</summary>

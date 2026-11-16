@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using FastShot.Core.Media;
@@ -16,9 +15,10 @@ public sealed class RecordingSession
     public Action<CaptureProject?>? OnFinish { get; set; }
     public Action<double>? OnTick { get; set; }
 
-    readonly ProjectLibrary library = AppController.Shared.Library;
+    readonly ProjectLibrary library;
     readonly Preferences prefs = Preferences.Shared;
-    readonly Stopwatch clock = new();
+    RecordingTimeline? timeline;
+    readonly List<Annotation> clickMarks = [];
     readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     readonly List<AudioSource> audioSources = [];
     PanelWindow? border, drawPanel, hud, countdown;
@@ -34,9 +34,11 @@ public sealed class RecordingSession
     double lastFrameTime, frameInterval;
     IntPtr previousWindow;
     string? captureError;
+    readonly TaskCompletionSource<CaptureProject?> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    public RecordingSession(RecordRequest request)
+    public RecordingSession(RecordRequest request, ProjectLibrary? library = null)
     {
+        this.library = library ?? AppController.Shared.Library;
         Request = request;
         Controller = new AnnotationController(Tools)
         {
@@ -57,7 +59,17 @@ public sealed class RecordingSession
         };
     }
 
-    public double Elapsed => clock.Elapsed.TotalSeconds;
+    public double Elapsed => timeline?.Seconds(AudioSource.Now100ns()) ?? 0;
+    public bool IsPaused => timeline?.IsPaused ?? false;
+
+    public void TogglePause()
+    {
+        if (!recording || stopping || timeline is null) return;
+        SetDrawing(false);
+        if (IsPaused) timeline.Resume(AudioSource.Now100ns());
+        else timeline.Pause(AudioSource.Now100ns());
+        hudView?.SetPaused(IsPaused);
+    }
 
     // MARK: Lifecycle
 
@@ -113,18 +125,18 @@ public sealed class RecordingSession
         writer = OnMta(() => new VideoWriter(media, outWidth, outHeight, fps, hevc, audio: wantsAudio ? AudioFormat.Standard : null));
 
         var start100ns = AudioSource.Now100ns();
-        clock.Restart();
+        timeline = new RecordingTimeline(start100ns);
         if (writer.Audio is not null)
         {
             mixer = new AudioMixer();
             if (prefs.RecordSystemAudio)
             {
-                if (AudioSource.TryStart(AudioSource.Kind.System, mixer, start100ns, out var error) is { } source) audioSources.Add(source);
+                if (AudioSource.TryStart(AudioSource.Kind.System, mixer, start100ns, timeline, out var error) is { } source) audioSources.Add(source);
                 else Toast.Show("Sistem sesi kaydedilemiyor", Icons.Mute, error);
             }
             if (prefs.RecordMicrophone)
             {
-                if (AudioSource.TryStart(AudioSource.Kind.Microphone, mixer, start100ns, out var error) is { } source) audioSources.Add(source);
+                if (AudioSource.TryStart(AudioSource.Kind.Microphone, mixer, start100ns, timeline, out var error) is { } source) audioSources.Add(source);
                 else Toast.Show("Mikrofon kullanılamıyor, sessiz kaydediliyor", Icons.MicOff, error);
             }
             audioThread = new Thread(AudioLoop) { IsBackground = true, Name = "FastShot audio mix" };
@@ -145,8 +157,16 @@ public sealed class RecordingSession
         {
             using var capture = new GdiCapture(region.Width, region.Height, width, height);
             var next = 0.0;
+            var mouseWasDown = false;
             while (!stopRequested)
             {
+                var mouseDown = (Native.GetAsyncKeyState(1) & 0x8000) != 0;
+                if (IsPaused)
+                {
+                    mouseWasDown = mouseDown;
+                    Thread.Sleep(10);
+                    continue;
+                }
                 var now = Elapsed;
                 if (now < next)
                 {
@@ -156,6 +176,20 @@ public sealed class RecordingSession
                     continue;
                 }
                 var time = Elapsed;
+                if (prefs.HighlightClicks && mouseDown && !mouseWasDown)
+                {
+                    var point = Native.CursorPosition();
+                    Native.GetWindowThreadProcessId(Native.WindowFromPoint(point), out var process);
+                    if (process != (uint)Environment.ProcessId && region.Contains(point.X, point.Y))
+                    {
+                        var x = (point.X - region.Left) / Request.Scale;
+                        var y = (point.Y - region.Top) / Request.Scale;
+                        lock (clickMarks) clickMarks.Add(new Annotation(AnnotationKind.ellipse,
+                            [new Point(x - 16, y - 16), new Point(x + 16, y + 16)], RGBAColor.Yellow,
+                            lineWidth: 3, start: time, end: time + 0.45));
+                    }
+                }
+                mouseWasDown = mouseDown;
                 capture.Grab(region.Left, region.Top, prefs.ShowCursor);
                 writer!.WriteFrame(capture.Bits, capture.Stride, time, frameInterval);
                 lastFrameTime = time;
@@ -198,6 +232,12 @@ public sealed class RecordingSession
     {
         foreach (var source in audioSources) source.Dispose();
         audioSources.Clear();
+    }
+
+    public Task<CaptureProject?> StopAsync()
+    {
+        Stop();
+        return completion.Task;
     }
 
     public void Stop()
@@ -275,10 +315,11 @@ public sealed class RecordingSession
             var duration = probe.duration > 0 ? probe.duration : recordedFor;
             stored.Duration = duration;
             if (probe.width > 0) stored.PixelScale = probe.width / stored.CanvasSize.Width;
-            stored.Annotations = Controller.Annotations.Select(mark =>
+            stored.Annotations = Controller.Annotations.Concat(clickMarks).Select(mark =>
             {
                 var copy = mark.Clone();
                 copy.Start = Math.Min(mark.Start ?? 0, duration);
+                if (copy.End is { } end) copy.End = Math.Min(duration, end);
                 return copy;
             }).ToList();
             library.Save(stored);
@@ -298,6 +339,7 @@ public sealed class RecordingSession
         if (finished) return;
         finished = true;
         timer.Stop();
+        completion.TrySetResult(result);
         OnFinish?.Invoke(result);
     }
 
@@ -344,12 +386,12 @@ public sealed class RecordingSession
     public void PlaceHud()
     {
         if (hud is null || hudView is null) return;
-        hudView.Root.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var s = hud.Scale;
+        var work = Request.Monitor.Work;
+        hudView.Root.Measure(new Size(work.Width / s, work.Height / s));
         var width = (int)Math.Ceiling(hudView.Root.DesiredSize.Width * s);
         var height = (int)Math.Ceiling(hudView.Root.DesiredSize.Height * s);
         var region = Request.PixelRect;
-        var work = Request.Monitor.Work;
         var gap = (int)(6 * s);
         var x = region.Left + (region.Width - width) / 2;
         var y = region.Bottom + gap;
@@ -359,6 +401,7 @@ public sealed class RecordingSession
             if (y < work.Top) y = region.Bottom - gap - height;
         }
         x = Math.Min(Math.Max(work.Left, x), work.Right - width);
+        y = Math.Clamp(y, work.Top, Math.Max(work.Top, work.Bottom - height));
         hud.SetBounds(new Native.RECT(x, y, x + width, y + height));
     }
 
@@ -367,7 +410,7 @@ public sealed class RecordingSession
 
     void SetDrawing(bool on)
     {
-        if (on && !recording) return;
+        if (on && (!recording || IsPaused)) return;
         drawing = on;
         if (borderShape is not null) borderShape.Stroke = on ? Theme.Accent : Theme.Red;
         hudView?.SetDrawing(on);
@@ -436,10 +479,12 @@ public sealed class RecordingHud
     readonly IconButton drawToggle;
     readonly StackPanel drawingTools = new() { Orientation = Orientation.Horizontal, Visibility = Visibility.Collapsed };
     readonly PillButton stop;
+    readonly Button pause = new() { Content = "Duraklat", IsEnabled = false, Padding = new Thickness(9, 4, 9, 4), Margin = new Thickness(4, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Kaydı duraklat / devam et" };
 
     public RecordingHud(RecordingSession session)
     {
         this.session = session;
+        pause.Click += (_, _) => session.TogglePause();
         var p = UiPalette.Hud;
         var tools = session.Tools;
         time.Text = "Hazırlanıyor…";
@@ -471,19 +516,29 @@ public sealed class RecordingHud
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(dot);
         row.Children.Add(time);
+        row.Children.Add(pause);
         row.Children.Add(stop);
         row.Children.Add(Ui.VSeparator(p));
         row.Children.Add(drawToggle);
         row.Children.Add(drawingTools);
         row.Children.Add(Ui.VSeparator(p));
         row.Children.Add(new IconButton(new IconView(Icons.Close, 13), "Kaydı iptal et", session.Cancel, p, 26));
-        Root = Ui.Hud(row, 12, 5);
+        Root = new Viewbox { Child = Ui.Hud(row, 12, 5), Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly };
     }
 
     public void SetRecording(bool on)
     {
         dot.Opacity = on ? 1 : 0.35;
         drawToggle.IsEnabled = on;
+        pause.IsEnabled = on;
+    }
+
+    public void SetPaused(bool paused)
+    {
+        pause.Content = paused ? "Devam et" : "Duraklat";
+        dot.Opacity = paused ? 0.35 : 1;
+        drawToggle.IsEnabled = !paused;
+        session.PlaceHud();
     }
 
     public void SetElapsed(double? seconds)
@@ -499,6 +554,8 @@ public sealed class RecordingHud
     {
         time.Text = "Kaydediliyor…";
         drawToggle.IsEnabled = false;
+        pause.IsEnabled = false;
+        stop.IsEnabled = false;
     }
 
     public void SetDrawing(bool on)

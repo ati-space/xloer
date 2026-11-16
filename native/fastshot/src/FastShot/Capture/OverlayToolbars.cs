@@ -50,6 +50,13 @@ public static class OverlayToolbars
         var p = UiPalette.Hud;
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         void Add(UIElement element) => row.Children.Add(element);
+        if (session.Mode is CaptureSession.CaptureMode.Queue or CaptureSession.CaptureMode.Scrolling)
+        {
+            var queue = session.Mode == CaptureSession.CaptureMode.Queue;
+            Add(new PillButton(queue ? "Kuyruğa ekle" : "Kaydırmalı yakala", null, "Seçilen alanı kullan (Enter)", Theme.Accent, session.PerformDefaultAction));
+            Add(new IconButton(new IconView(Icons.Close), "İptal (Esc)", session.Cancel, p));
+            return Ui.Hud(row, 10, 5);
+        }
         if (session.Mode == CaptureSession.CaptureMode.Screenshot)
         {
             Add(new IconButton(new IconView(Icons.Copy), "Panoya kopyala (Ctrl+C veya Enter)", session.Copy, p));
@@ -61,6 +68,8 @@ public static class OverlayToolbars
             Add(new IconButton(new IconView(Icons.Translate), "Metni tanı ve çevir (Ctrl+Shift+T)", session.TranslateText, p));
             Add(new IconButton(new IconView(Icons.Edit), "Düzenleyicide aç (Ctrl+E)", session.OpenEditor, p));
             Add(new IconButton(new IconView(Icons.Record), "Bu alanı videoya kaydet (Ctrl+R)", session.Record, p, tint: Theme.Red));
+            Add(new IconButton(new IconView("\uE8FD"), "Yakalama kuyruğuna ekle (Ctrl+Q)", session.Enqueue, p));
+            Add(new IconButton(new IconView("\uE74A"), "Kaydırmalı ekran görüntüsü (Ctrl+J)", session.Scroll, p));
             Add(Ui.VSeparator(p));
             Add(new IconButton(new IconView(Icons.Close), "Kapat (Esc)", session.Cancel, p));
         }

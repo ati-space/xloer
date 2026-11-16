@@ -27,37 +27,52 @@ public static class WordEngine
         lock (gate)
         {
             // Word can stop on a licence or first-run dialog nobody sees; give up after a while and end the instance we started.
-            var before = Process.GetProcessesByName("WINWORD").Select(p => p.Id).ToHashSet();
+            var lifetime = new WordProcessLifetime();
             Exception? failure = null;
             var thread = new Thread(() =>
             {
-                try { Run(input, output, codec); }
+                try { Run(input, output, codec, lifetime); }
                 catch (Exception error) { failure = error; }
             }) { IsBackground = true, Name = "FastShot Word" };
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
             if (!thread.Join(Timeout))
             {
-                foreach (var process in Process.GetProcessesByName("WINWORD").Where(p => !before.Contains(p.Id)))
-                {
-                    try { process.Kill(); } catch { /* already gone */ }
-                }
+                lifetime.Timeout();
                 throw new ConversionException("Microsoft Word yanıt vermedi.");
             }
             if (failure is not null) throw failure is ConversionException ? failure : new ConversionException($"Word dosyayı dönüştüremedi: {failure.Message}");
         }
     }
 
-    static void Run(string input, string output, string codec)
+    [DllImport("user32.dll")]
+    static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    static void Run(string input, string output, string codec, WordProcessLifetime lifetime)
     {
         var type = Type.GetTypeFromProgID("Word.Application") ?? throw new InvalidOperationException("Microsoft Word yüklü değil.");
         dynamic? word = null;
         dynamic? document = null;
-        var ownsInstance = true;
+        var ownsInstance = false;
+        Process? process = null;
         try
         {
             word = Activator.CreateInstance(type)!;
             ownsInstance = (int)word.Documents.Count == 0;
+            // Word identifies its own process through its window, even when the window is hidden.
+            // If activation itself hangs, we have no verified owner and must not kill other Word instances.
+            if (ownsInstance)
+            {
+                GetWindowThreadProcessId(new IntPtr((int)word.Hwnd), out var pid);
+                if (pid != 0)
+                {
+                    process = Process.GetProcessById((int)pid);
+                    _ = process.SafeHandle; // Hold the process identity across a timeout (PID reuse).
+                    var owned = process;
+                    lifetime.Track(ownsInstance, () => { try { owned.Kill(); } catch (InvalidOperationException) { } catch (System.ComponentModel.Win32Exception) { } });
+                }
+            }
+            lifetime.ThrowIfTimedOut();
             if (ownsInstance) word.Visible = false;
             word.DisplayAlerts = 0; // wdAlertsNone
             var full = Path.GetFullPath(input);
@@ -99,7 +114,49 @@ public static class WordEngine
                 Marshal.FinalReleaseComObject(word);
             }
             if (document is not null) Marshal.FinalReleaseComObject(document);
+            lifetime.Complete();
+            process?.Dispose();
         }
+    }
+}
+
+/// <summary>A timed-out conversion can terminate only the Word instance it verified as its own.</summary>
+internal sealed class WordProcessLifetime
+{
+    readonly object gate = new();
+    Action? terminate;
+    bool timedOut, complete;
+
+    public void Track(bool ownsInstance, Action terminateOwnedProcess)
+    {
+        lock (gate)
+        {
+            if (!ownsInstance || complete) return;
+            if (timedOut) terminateOwnedProcess();
+            else terminate = terminateOwnedProcess;
+        }
+    }
+
+    public void Timeout()
+    {
+        lock (gate)
+        {
+            if (complete || timedOut) return;
+            timedOut = true;
+            terminate?.Invoke();
+            terminate = null;
+        }
+    }
+
+    public void ThrowIfTimedOut()
+    {
+        lock (gate)
+            if (timedOut) throw new ConversionException("Microsoft Word yanıt vermedi.");
+    }
+
+    public void Complete()
+    {
+        lock (gate) { complete = true; terminate = null; }
     }
 }
 

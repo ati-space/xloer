@@ -178,12 +178,13 @@ public sealed class SettingsWindow : Window
                     Updater.Status.Checking => $"Sürüm {version}. Denetleniyor…",
                     Updater.Status.Available => $"Sürüm {version}. FastShot {updater.Available!.Version.ToString(3)} hazır.",
                     Updater.Status.Downloading => "Güncelleme indiriliyor; FastShot birazdan yeniden açılacak.",
+                    Updater.Status.Ready => $"Sürüm {version}. FastShot {updater.Available!.Version.ToString(3)} indirildi; yaptığınız iş (kayıt, düzenleme, dönüştürme) bitince kendiliğinden kurulacak.",
                     Updater.Status.UpToDate => $"Sürüm {version}. FastShot güncel (son denetim {updater.LastChecked:HH:mm}).",
                     Updater.Status.Failed => $"Sürüm {version}. {updater.Error}",
                     _ => $"Sürüm {version}.",
                 };
-            check.IsEnabled = installed && updater.State is not (Updater.Status.Checking or Updater.Status.Downloading);
-            install.Visibility = updater.State == Updater.Status.Available ? Visibility.Visible : Visibility.Collapsed;
+            check.IsEnabled = installed && updater.State is not (Updater.Status.Checking or Updater.Status.Downloading or Updater.Status.Ready);
+            install.Visibility = updater.State is Updater.Status.Available or Updater.Status.Ready ? Visibility.Visible : Visibility.Collapsed;
             if (updater.Available is { } release) install.Content = $"{release.Version.ToString(3)} sürümüne güncelle";
         }
         void Changed() => Dispatcher.BeginInvoke(Sync);
@@ -193,7 +194,7 @@ public sealed class SettingsWindow : Window
         Sync();
         panel.Children.Add(status);
         panel.Children.Add(buttons);
-        panel.Children.Add(Toggle("Güncellemeleri otomatik denetle", () => prefs.CheckForUpdates, on => prefs.CheckForUpdates = on));
+        panel.Children.Add(Note("FastShot, Windows açılınca ve sonra 6 saatte bir yeni sürümü denetler; varsa kendiliğinden indirip kurar ve yeniden açılır. Kayıt, düzenleme veya dönüştürme sürüyorsa bitmesini bekler."));
         var releases = new Button { Content = "Sürüm notları", Padding = new Thickness(12, 4, 12, 5), HorizontalAlignment = HorizontalAlignment.Left };
         releases.Click += (_, _) => Output.OpenUrl(Updater.ReleasesPage);
         panel.Children.Add(releases);
@@ -208,7 +209,7 @@ public sealed class SettingsWindow : Window
         page.Children.Add(ShortcutRow("Ekran görüntüsü (2. kısayol)", () => prefs.ScreenshotHotkeyAlt, v => prefs.ScreenshotHotkeyAlt = v));
         page.Children.Add(ShortcutRow("Video kaydı başlat / bitir", () => prefs.RecordHotkey, v => prefs.RecordHotkey = v));
         page.Children.Add(ShortcutRow("Video kaydı (2. kısayol)", () => prefs.RecordHotkeyAlt, v => prefs.RecordHotkeyAlt = v));
-        page.Children.Add(Note("Değiştirmek için kısayola tıklayıp yeni tuş kombinasyonuna basın (Esc: vazgeç). Print Screen, F1–F24, Insert ve Pause tek başına kullanılabilir; diğer tuşlar Ctrl, Alt veya Win ile birlikte."));
+        page.Children.Add(Note("Değiştirmek için kısayola tıklayıp yeni tuşa ya da tuş kombinasyonuna basın (Esc: vazgeç). Tek bir tuş da atanabilir (ör. P, F8 veya Print Screen). Harf, rakam veya boşluk gibi bir yazı tuşunu Ctrl, Alt ya da Win olmadan atarsanız, FastShot çalıştığı sürece o tuş hiçbir yerde yazmaz, yalnızca kısayol olarak çalışır."));
         var reset = new Button { Content = "Varsayılanlara dön", Padding = new Thickness(12, 4, 12, 5), HorizontalAlignment = HorizontalAlignment.Left };
         reset.Click += (_, _) => { prefs.ResetShortcuts(); Refresh(); };
         page.Children.Add(reset);
@@ -256,10 +257,12 @@ public sealed class SettingsWindow : Window
         {
             recorder.Refresh();
             var value = get();
-            warning.Text = value is not null && HotKeyCenter.Shared.Failed.Contains(value)
-                ? value == KeyCombo.PrintScreen && PrintScreenSetting.OpensSnippingTool
-                    ? "Windows bu tuşu Ekran Alıntısı Aracı için kullanıyor (aşağıya bakın)."
-                    : "Başka bir uygulama bu kısayolu kullanıyor."
+            warning.Text = value is null ? ""
+                : HotKeyCenter.Shared.Failed.Contains(value)
+                    ? value == KeyCombo.PrintScreen && PrintScreenSetting.OpensSnippingTool
+                        ? "Windows bu tuşu Ekran Alıntısı Aracı için kullanıyor (aşağıya bakın)."
+                        : "Başka bir uygulama bu kısayolu kullanıyor."
+                : value.BlocksTyping ? "FastShot çalışırken bu tuş hiçbir yerde yazmaz."
                 : "";
             warning.Visibility = warning.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -473,6 +476,8 @@ public sealed class SettingsWindow : Window
         page.Children.Add(Row("Kodek", Picker([(VideoCodec.h264.Title(), VideoCodec.h264), (VideoCodec.hevc.Title(), VideoCodec.hevc)], () => prefs.VideoCodec, v => prefs.VideoCodec = v)));
         page.Children.Add(Row("Geri sayım", Picker([("Yok", 0), ("3 saniye", 3), ("5 saniye", 5)], () => prefs.Countdown, v => prefs.Countdown = v)));
         page.Children.Add(Toggle("İmleci göster", () => prefs.ShowCursor, on => prefs.ShowCursor = on));
+        page.Children.Add(Toggle("Videoda fare tıklamalarını vurgula", () => prefs.HighlightClicks, on => prefs.HighlightClicks = on));
+        page.Children.Add(Note("Kayıt çubuğundaki Duraklat / Devam et düğmesi ses ve görüntüye birlikte ara verir. Tıklama halkaları videoda düzenlenebilir çizimler olarak saklanır."));
         page.Children.Add(Toggle("Sistem sesini kaydet", () => prefs.RecordSystemAudio, on => prefs.RecordSystemAudio = on));
         page.Children.Add(Toggle("Mikrofonu kaydet", () => prefs.RecordMicrophone, on => prefs.RecordMicrophone = on));
         page.Children.Add(Toggle("Kayıttan sonra düzenleyiciyi aç", () => prefs.OpenEditorAfterRecording, on => prefs.OpenEditorAfterRecording = on));

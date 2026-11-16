@@ -45,6 +45,8 @@ public sealed unsafe class VideoReader : IDisposable
     public AudioFormat? Audio { get; private set; }
     /// <summary>True when the file has any audio track, whether or not it is being decoded.</summary>
     public bool HasAudioTrack { get; private set; }
+    /// <summary>The source's encoded video subtype, before decoding to NV12.</summary>
+    public Guid Codec { get; private set; }
 
     public VideoReader(string path, bool audio = false)
     {
@@ -71,6 +73,8 @@ public sealed unsafe class VideoReader : IDisposable
         MF.Check(reader.SetStreamSelection(videoIndex, 1), "SetStreamSelection");
 
         MF.Check(reader.GetNativeMediaType(videoIndex, 0, out var native), "GetNativeMediaType");
+        MF.Check(native.GetGUID(ref MF.MF_MT_SUBTYPE, out var codec), "MF_MT_SUBTYPE");
+        Codec = codec;
         if (native.GetUINT64(ref MF.MF_MT_FRAME_RATE, out var rate) >= 0)
         {
             var (num, den) = MF.Unpack(rate);

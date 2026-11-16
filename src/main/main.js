@@ -517,9 +517,13 @@ function fastshotMenu() {
     {
       label: 'FastShot',
       submenu: [
+        { label: 'Kaydırmalı ekran görüntüsü…', click: run('scrolling-capture') },
+        { label: 'Yakalama kuyruğu…', click: run('capture-queue') },
+        { type: 'separator' },
         { label: 'Son yakalamayı düzenle', click: run('edit-last') },
         { label: 'Geçmiş…', click: run('history') },
         { label: 'Görüntü veya video aç…', click: run('open') },
+        { label: 'FastShot projesi aç…', click: run('open-project') },
         { label: 'Dosya çarkı…', click: run('wheel') },
         { label: 'Çeviri…', click: run('translate') },
         { type: 'separator' },

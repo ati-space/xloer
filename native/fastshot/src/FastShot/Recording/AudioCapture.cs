@@ -17,6 +17,9 @@ public sealed class AudioMixer
     public long Flushed { get { lock (gate) return flushed; } }
 
     public void Add(long index, float[] stereo, int frames)
+        => Add(index, stereo, 0, frames);
+
+    public void Add(long index, float[] stereo, int offset, int frames)
     {
         lock (gate)
         {
@@ -26,8 +29,8 @@ public sealed class AudioMixer
                 if (at < flushed) continue;
                 if (at >= flushed + Capacity) break;
                 var position = (int)(at % Capacity) * 2;
-                ring[position] += stereo[i * 2];
-                ring[position + 1] += stereo[i * 2 + 1];
+                ring[position] += stereo[(offset + i) * 2];
+                ring[position + 1] += stereo[(offset + i) * 2 + 1];
             }
         }
     }
@@ -67,23 +70,25 @@ public sealed class AudioSource : IDisposable
     readonly Kind kind;
     readonly AudioMixer mixer;
     readonly long start100ns;
+    readonly RecordingTimeline timeline;
     readonly Thread thread;
     readonly ManualResetEventSlim ready = new(false);
     volatile bool stopping;
     string? error;
 
-    AudioSource(Kind kind, AudioMixer mixer, long start100ns)
+    AudioSource(Kind kind, AudioMixer mixer, long start100ns, RecordingTimeline timeline)
     {
         this.kind = kind;
         this.mixer = mixer;
         this.start100ns = start100ns;
+        this.timeline = timeline;
         thread = new Thread(Run) { IsBackground = true, Name = $"FastShot audio {kind}" };
     }
 
     /// <summary>Starts capturing; returns null with a reason when the device cannot be opened.</summary>
-    public static AudioSource? TryStart(Kind kind, AudioMixer mixer, long start100ns, out string? error)
+    public static AudioSource? TryStart(Kind kind, AudioMixer mixer, long start100ns, RecordingTimeline timeline, out string? error)
     {
-        var source = new AudioSource(kind, mixer, start100ns);
+        var source = new AudioSource(kind, mixer, start100ns, timeline);
         source.thread.Start();
         source.ready.Wait(TimeSpan.FromSeconds(3));
         error = source.error;
@@ -147,7 +152,8 @@ public sealed class AudioSource : IDisposable
                         var expected = ((long)qpc - start100ns) * AudioMixer.Rate / 10_000_000;
                         var discontinuity = (bufferFlags & 1) != 0;
                         if (nextIndex is not { } index || discontinuity || Math.Abs(expected - index) > AudioMixer.Rate / 20) nextIndex = expected;
-                        if (count > 0) mixer.Add(nextIndex.Value, output, count);
+                        foreach (var span in timeline.AudioSpans(nextIndex.Value, count, AudioMixer.Rate))
+                            mixer.Add(span.Destination, output, span.Offset, span.Frames);
                         nextIndex += count;
                     }
                     finally

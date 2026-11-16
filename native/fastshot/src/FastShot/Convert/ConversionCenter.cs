@@ -21,6 +21,9 @@ public sealed class ConversionCenter
     readonly Queue<Job> queue = new();
     CancellationTokenSource? current;
 
+    /// <summary>Files are being converted or wait to be.</summary>
+    public bool IsBusy => current is not null || queue.Count > 0;
+
     public void Perform(WheelItem item, List<string> paths)
     {
         if (item.Format is { } format) Convert(paths, format);

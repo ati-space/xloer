@@ -77,7 +77,8 @@ public static class Program
         return false;
     }
 
-    static void Log(Exception error)
+    /// <summary>Appends to %LOCALAPPDATA%\FastShot\errors.log.</summary>
+    internal static void Log(Exception error)
     {
         try
         {

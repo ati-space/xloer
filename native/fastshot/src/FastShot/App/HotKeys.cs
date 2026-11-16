@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Windows.Interop;
 
 namespace FastShot;
@@ -13,10 +14,10 @@ public sealed record KeyCombo(uint VirtualKey, uint Modifiers)
     public static readonly KeyCombo ControlShift2 = new(0x32, Native.MOD_CONTROL | Native.MOD_SHIFT);
     public static readonly KeyCombo ControlShift7 = new(0x37, Native.MOD_CONTROL | Native.MOD_SHIFT);
 
-    /// <summary>Keys that may be used without a modifier: Print Screen, Insert, Pause, F1–F24.</summary>
-    static bool Standalone(uint vk) => vk is VK_SNAPSHOT or 0x2D or 0x13 or (>= 0x70 and <= 0x87);
+    /// <summary>Keys that type nothing: Print Screen, Insert, Pause, F1–F24.</summary>
+    static bool IsCommandKey(uint vk) => vk is VK_SNAPSHOT or 0x2D or 0x13 or (>= 0x70 and <= 0x87);
 
-    /// <summary>A recorded key press, or null for plain typing keys that would hijack text input.</summary>
+    /// <summary>A recorded key press: any key, on its own or with modifiers. Null for a modifier pressed on its own.</summary>
     public static KeyCombo? FromKey(Key key, ModifierKeys modifiers)
     {
         if (key is Key.None or Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt
@@ -28,9 +29,13 @@ public sealed record KeyCombo(uint VirtualKey, uint Modifiers)
         if (modifiers.HasFlag(ModifierKeys.Shift)) flags |= Native.MOD_SHIFT;
         if (modifiers.HasFlag(ModifierKeys.Alt)) flags |= Native.MOD_ALT;
         if (modifiers.HasFlag(ModifierKeys.Windows)) flags |= Native.MOD_WIN;
-        if (!Standalone(vk) && (flags == 0 || flags == Native.MOD_SHIFT)) return null;
         return new KeyCombo(vk, flags);
     }
+
+    /// <summary>A key such as P, Shift+P or Space without Ctrl, Alt or Win: while FastShot runs, Windows gives it to FastShot
+    /// wherever it is pressed, so it no longer types anywhere.</summary>
+    [JsonIgnore]
+    public bool BlocksTyping => (Modifiers & (Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_WIN)) == 0 && !IsCommandKey(VirtualKey);
 
     public string DisplayString
     {

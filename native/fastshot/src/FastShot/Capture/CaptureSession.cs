@@ -19,13 +19,15 @@ public sealed record RecordRequest(MonitorInfo Monitor, Rect Rect, double Scale)
 /// then copy / save / pin / OCR / edit / record.</summary>
 public sealed class CaptureSession
 {
-    public enum CaptureMode { Screenshot, Video }
+    public enum CaptureMode { Screenshot, Video, Queue, Scrolling }
 
     public CaptureMode Mode { get; }
     public ToolState Tools { get; } = new();
     public AnnotationController Controller { get; }
     public Action<CaptureSession>? OnFinish { get; set; }
     public Action<RecordRequest>? OnRecord { get; set; }
+    public Action<RecordRequest>? OnScroll { get; set; }
+    public Action<BitmapSource>? OnEnqueue { get; set; }
     public Action<CaptureProject>? OnOpenEditor { get; set; }
 
     readonly List<ScreenShot> shots;
@@ -95,6 +97,30 @@ public sealed class CaptureSession
     }
 
     // MARK: Actions
+
+    public void PerformDefaultAction()
+    {
+        if (Mode == CaptureMode.Video) Record();
+        else if (Mode == CaptureMode.Queue) Enqueue();
+        else if (Mode == CaptureMode.Scrolling) Scroll();
+        else Copy();
+    }
+
+    public void Enqueue()
+    {
+        if (RenderedImage() is not { } image) return;
+        StoreInLibrary(image);
+        Finish(restoreFocus: false);
+        OnEnqueue?.Invoke(image);
+    }
+
+    public void Scroll()
+    {
+        if (ActiveView is not { } view || view.Selection is not { } rect) return;
+        var request = new RecordRequest(view.Shot.Monitor, rect, view.Scale);
+        Finish();
+        OnScroll?.Invoke(request);
+    }
 
     public void Copy()
     {

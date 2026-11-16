@@ -50,7 +50,7 @@ public static class Installer
         {
             var question = updating
                 ? $"FastShot {CurrentVersion.ToString(3)} kurulu FastShot'ın yerine geçecek. Ayarlarınız ve Geçmiş'iniz korunur."
-                : $"FastShot {CurrentVersion.ToString(3)} bu bilgisayara kurulacak:\n{Folder}\n\nBaşlat menüsüne eklenir, Windows açılınca başlar ve yeni sürümleri kendisi denetler. Kaldırmak için: Ayarlar › Uygulamalar › FastShot.";
+                : $"FastShot {CurrentVersion.ToString(3)} bu bilgisayara kurulacak:\n{Folder}\n\nBaşlat menüsüne eklenir, Windows açılınca başlar ve yeni sürümleri kendiliğinden kurar. Kaldırmak için: Ayarlar › Uygulamalar › FastShot.";
             if (MessageBox.Show(question, updating ? "FastShot'ı güncelle" : "FastShot'ı kur", MessageBoxButton.OKCancel, MessageBoxImage.Information) != MessageBoxResult.OK)
                 return 1;
         }
